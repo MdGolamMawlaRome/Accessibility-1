@@ -1,6 +1,8 @@
 package com.example.smartaccessibility;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityButtonController;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -59,6 +61,29 @@ public class SmartAccessibilityService extends AccessibilityService {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         registerSystemObservers();
+
+        // Properly register the accessibility button callback for Android 8.0+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            AccessibilityServiceInfo info = getServiceInfo();
+            if (info != null) {
+                info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON;
+                setServiceInfo(info);
+            }
+
+            AccessibilityButtonController buttonController = getAccessibilityButtonController();
+            buttonController.registerAccessibilityButtonCallback(
+                new AccessibilityButtonController.AccessibilityButtonCallback() {
+                    @Override
+                    public void onClicked(AccessibilityButtonController controller) {
+                        if (popupView != null) {
+                            hideMenu();
+                        } else {
+                            showMenu();
+                        }
+                    }
+                }
+            );
+        }
     }
 
     @Override
@@ -71,16 +96,6 @@ public class SmartAccessibilityService extends AccessibilityService {
             }
         }
         return START_STICKY;
-    }
-
-    @Override
-    public void onAccessibilityButtonClicked() {
-        super.onAccessibilityButtonClicked();
-        if (popupView != null) {
-            hideMenu();
-        } else {
-            showMenu();
-        }
     }
 
     private void showMenu() {
@@ -187,7 +202,7 @@ public class SmartAccessibilityService extends AccessibilityService {
         });
 
         SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
-        TextView volumeText = popupView.findViewById(R.id.volumePercentText);
+            TextView volumeText = popupView.findViewById(R.id.volumePercentText);
         updateVolumeSlider(volumeSlider, volumeText);
 
         volumeSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -223,7 +238,6 @@ public class SmartAccessibilityService extends AccessibilityService {
             btnRecordText.setText("Record");
         }
 
-        // স্ক্রিন রেকর্ড (0ms ডিলে - সাথে সাথে মেনু হাইড হবে)
         popupView.findViewById(R.id.btnRecord).setOnClickListener(v -> {
             hideMenu();
             if (!isRecording) {
@@ -235,20 +249,17 @@ public class SmartAccessibilityService extends AccessibilityService {
             }
         });
 
-        // স্ক্রিনশট (0ms ডিলে - সাথে সাথে মেনু হাইড হবে)
         popupView.findViewById(R.id.btnScreenshot).setOnClickListener(v -> {
             hideMenu();
             performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT);
         });
 
-        // লক স্ক্রিন (0ms ডিলে - সাথে সাথে মেনু হাইড হবে)
         popupView.findViewById(R.id.btnLock).setOnClickListener(v -> {
             hideMenu();
             performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
         });
     }
 
-    // অ্যান্ড্রয়েড ১৪ কমপ্লায়েন্ট মিডিয়াপ্রজেকশন + পারমিশনের পর ৩ সেকেন্ড ডিলে মেকানিজম
     private void startScreenRecording(int resultCode, Intent data) {
         if (isRecording) return;
 
@@ -280,7 +291,6 @@ public class SmartAccessibilityService extends AccessibilityService {
 
         Toast.makeText(this, "৩ সেকেন্ড পর রেকর্ডিং শুরু হচ্ছে...", Toast.LENGTH_SHORT).show();
 
-        // পারমিশন পাওয়ার পর ৩ সেকেন্ড ওয়েট করবে
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             initializeAndStartRecorder();
         }, 3000);
@@ -328,10 +338,10 @@ public class SmartAccessibilityService extends AccessibilityService {
             isRecording = true;
 
             updateNotificationToRecording();
-            Toast.makeText(this, "রেকর্ডিং শুরু হয়েছে (60 FPS, Max Resolution)", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "রেকর্ডিং শুরু হয়েছে (60 FPS, Max Resolution)", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(this, "রেকর্ডিং শুরু করা যায়নি: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "রেকর্ডিং শুরু করা যায়নি: " + e.getMessage(), Toast.LENGTH_LONG).show();
             stopScreenRecording();
         }
     }
@@ -370,7 +380,7 @@ public class SmartAccessibilityService extends AccessibilityService {
         }
         isRecording = false;
         stopForeground(true);
-        Toast.makeText(this, "রেকর্ডিং গ্যালারির Movies ফোল্ডারে সেভ হয়েছে!", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "রেকর্ডিং গ্যালারির Movies ফোল্ডারে সেভ হয়েছে!", Toast.LENGTH_SHORT).show();
     }
 
     private int getCurrentSystemBrightness() {
