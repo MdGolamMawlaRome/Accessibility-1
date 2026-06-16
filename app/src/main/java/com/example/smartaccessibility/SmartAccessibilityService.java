@@ -62,7 +62,7 @@ public class SmartAccessibilityService extends AccessibilityService {
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         registerSystemObservers();
 
-        // Properly register the accessibility button callback for Android 8.0+
+        // Bind panel to the system navigation bar Accessibility button
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             AccessibilityServiceInfo info = getServiceInfo();
             if (info != null) {
@@ -75,14 +75,18 @@ public class SmartAccessibilityService extends AccessibilityService {
                 new AccessibilityButtonController.AccessibilityButtonCallback() {
                     @Override
                     public void onClicked(AccessibilityButtonController controller) {
-                        if (popupView != null) {
-                            hideMenu();
-                        } else {
-                            showMenu();
-                        }
+                        toggleMenu();
                     }
                 }
             );
+        }
+    }
+
+    private void toggleMenu() {
+        if (popupView != null) {
+            hideMenu();
+        } else {
+            showMenu();
         }
     }
 
@@ -111,9 +115,11 @@ public class SmartAccessibilityService extends AccessibilityService {
                 PixelFormat.TRANSLUCENT
         );
 
+        // Click outside the menu area to close it
         View fullscreenRoot = popupView.findViewById(R.id.fullscreenRoot);
         fullscreenRoot.setOnClickListener(v -> hideMenu());
 
+        // Stop clicks inside the menu container from closing it
         View popupRoot = popupView.findViewById(R.id.popupRoot);
         popupRoot.setOnClickListener(v -> { });
 
@@ -202,7 +208,7 @@ public class SmartAccessibilityService extends AccessibilityService {
         });
 
         SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
-            TextView volumeText = popupView.findViewById(R.id.volumePercentText);
+        TextView volumeText = popupView.findViewById(R.id.volumePercentText);
         updateVolumeSlider(volumeSlider, volumeText);
 
         volumeSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -309,7 +315,12 @@ public class SmartAccessibilityService extends AccessibilityService {
         if (height % 2 != 0) height--;
 
         try {
-            mediaRecorder = new MediaRecorder();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                mediaRecorder = new MediaRecorder(this);
+            } else {
+                mediaRecorder = new MediaRecorder();
+            }
+
             mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
             mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
 
@@ -318,6 +329,8 @@ public class SmartAccessibilityService extends AccessibilityService {
             values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
             values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/SmartAccessibility");
             Uri uri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
+
+            if (uri == null) throw new Exception("Failed to create MediaStore URI");
 
             ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "rw");
             mediaRecorder.setOutputFile(pfd.getFileDescriptor());
@@ -435,7 +448,12 @@ public class SmartAccessibilityService extends AccessibilityService {
         filter.addAction("android.media.VOLUME_CHANGED_ACTION");
         filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
-        registerReceiver(systemReceiver, filter);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(systemReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(systemReceiver, filter);
+        }
     }
 
     @Override public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {}
