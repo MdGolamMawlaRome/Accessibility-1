@@ -32,8 +32,8 @@ import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.LayoutInflater;
-import android.view.Surface;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -120,12 +120,39 @@ public class SmartAccessibilityService extends AccessibilityService {
         fullscreenRoot.setOnClickListener(v -> hideMenu());
 
         // Stop clicks inside the menu container from closing it
-        View popupRoot = popupView.findViewById(R.id.popupRoot);
+        LinearLayout popupRoot = popupView.findViewById(R.id.popupRoot);
         popupRoot.setOnClickListener(v -> { });
 
         setupSliders();
         setupButtons();
-        updateLayoutForOrientation();
+
+        // Configure standard bottom layout structure
+        FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) popupRoot.getLayoutParams();
+        layoutParams.gravity = Gravity.BOTTOM;
+        layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT;
+        layoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
+
+        // Dynamic System Window Insets Observer to position layout exactly 5px above navigation bar
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+            popupView.setOnApplyWindowInsetsListener((v, insets) -> {
+                int navBarHeight = 0;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    navBarHeight = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+                } else {
+                    navBarHeight = insets.getSystemWindowInsetBottom();
+                }
+                
+                // Maintain side margins (16dp) and place exactly 5 pixels above the nav bar
+                layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), navBarHeight + 5);
+                popupRoot.setLayoutParams(layoutParams);
+                return insets;
+            });
+        } else {
+            int resourceId = getResources().getIdentifier("navigation_bar_height", "dimen", "android");
+            int navBarHeight = (resourceId > 0) ? getResources().getDimensionPixelSize(resourceId) : 0;
+            layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), navBarHeight + 5);
+            popupRoot.setLayoutParams(layoutParams);
+        }
 
         windowManager.addView(popupView, params);
     }
@@ -142,47 +169,7 @@ public class SmartAccessibilityService extends AccessibilityService {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        if (popupView != null) {
-            updateLayoutForOrientation();
-        }
-    }
-
-    private void updateLayoutForOrientation() {
-        if (popupView == null || windowManager == null || params == null) return;
-
-        int rotation = windowManager.getDefaultDisplay().getRotation();
-        LinearLayout rootLayout = popupView.findViewById(R.id.popupRoot);
-        LinearLayout buttonsLayout = popupView.findViewById(R.id.buttonsLayout);
-        FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) rootLayout.getLayoutParams();
-
-        if (rotation == Surface.ROTATION_90) {
-            layoutParams.gravity = Gravity.RIGHT | Gravity.CENTER_VERTICAL;
-            rootLayout.setMinimumWidth(dpToPx(280));
-            layoutParams.width = dpToPx(280);
-            layoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
-            layoutParams.bottomMargin = 0;
-            layoutParams.setMargins(0, 16, 16, 16);
-            if (buttonsLayout != null) buttonsLayout.setOrientation(LinearLayout.VERTICAL);
-        } else if (rotation == Surface.ROTATION_270) {
-            layoutParams.gravity = Gravity.LEFT | Gravity.CENTER_VERTICAL;
-            rootLayout.setMinimumWidth(dpToPx(280));
-            layoutParams.width = dpToPx(280);
-            layoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
-            layoutParams.bottomMargin = 0;
-            layoutParams.setMargins(16, 16, 0, 16);
-            if (buttonsLayout != null) buttonsLayout.setOrientation(LinearLayout.VERTICAL);
-        } else {
-            layoutParams.gravity = Gravity.BOTTOM;
-            layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT;
-            layoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
-            layoutParams.setMargins(16, 0, 16, 6);
-            if (buttonsLayout != null) buttonsLayout.setOrientation(LinearLayout.HORIZONTAL);
-        }
-
-        rootLayout.setLayoutParams(layoutParams);
-        try {
-            windowManager.updateViewLayout(popupView, params);
-        } catch (Exception e) {}
+        // Structure is locked to the bottom; WindowManager resizes layout bounds cleanly on rotation
     }
 
     private int dpToPx(int dp) {
