@@ -14,7 +14,9 @@ import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
 import android.database.ContentObserver;
+import android.graphics.Color;
 import android.graphics.PixelFormat;
+import android.graphics.Typeface;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.AudioManager;
@@ -55,6 +57,10 @@ public class SmartAccessibilityService extends AccessibilityService {
     private VirtualDisplay virtualDisplay;
     private MediaRecorder mediaRecorder;
 
+    // Visual Countdown Elements
+    private TextView countdownTextView;
+    private WindowManager.LayoutParams countdownParams;
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
@@ -62,7 +68,6 @@ public class SmartAccessibilityService extends AccessibilityService {
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         registerSystemObservers();
 
-        // Bind panel to the system navigation bar Accessibility button
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             AccessibilityServiceInfo info = getServiceInfo();
             if (info != null) {
@@ -115,24 +120,20 @@ public class SmartAccessibilityService extends AccessibilityService {
                 PixelFormat.TRANSLUCENT
         );
 
-        // Click outside the menu area to close it
         View fullscreenRoot = popupView.findViewById(R.id.fullscreenRoot);
         fullscreenRoot.setOnClickListener(v -> hideMenu());
 
-        // Stop clicks inside the menu container from closing it
         LinearLayout popupRoot = popupView.findViewById(R.id.popupRoot);
         popupRoot.setOnClickListener(v -> { });
 
         setupSliders();
         setupButtons();
 
-        // Configure standard bottom layout structure
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) popupRoot.getLayoutParams();
         layoutParams.gravity = Gravity.BOTTOM;
         layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT;
         layoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
 
-        // Dynamic System Window Insets Observer to position layout exactly 5px above navigation bar
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
             popupView.setOnApplyWindowInsetsListener((v, insets) -> {
                 int navBarHeight = 0;
@@ -141,8 +142,6 @@ public class SmartAccessibilityService extends AccessibilityService {
                 } else {
                     navBarHeight = insets.getSystemWindowInsetBottom();
                 }
-                
-                // Maintain side margins (16dp) and place exactly 5 pixels above the nav bar
                 layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), navBarHeight + 5);
                 popupRoot.setLayoutParams(layoutParams);
                 return insets;
@@ -169,7 +168,6 @@ public class SmartAccessibilityService extends AccessibilityService {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        // Structure is locked to the bottom; WindowManager resizes layout bounds cleanly on rotation
     }
 
     private int dpToPx(int dp) {
@@ -231,6 +229,7 @@ public class SmartAccessibilityService extends AccessibilityService {
             btnRecordText.setText("Record");
         }
 
+        // PERFECT TOGGLE: Starts if stopped, instantly terminates if active
         popupView.findViewById(R.id.btnRecord).setOnClickListener(v -> {
             hideMenu();
             if (!isRecording) {
@@ -264,8 +263,8 @@ public class SmartAccessibilityService extends AccessibilityService {
         }
 
         Notification.Builder builder = new Notification.Builder(this, channelId)
-                .setContentTitle("Screen Recording")
-                .setContentText("Recording will start in 3 seconds...")
+                .setContentTitle("Screen Recording Setup")
+                .setContentText("Preparing internal systems...")
                 .setSmallIcon(android.R.drawable.ic_media_play);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -282,11 +281,66 @@ public class SmartAccessibilityService extends AccessibilityService {
             return;
         }
 
-        Toast.makeText(this, "৩ সেকেন্ড পর রেকর্ডিং শুরু হচ্ছে...", Toast.LENGTH_SHORT).show();
+        // Display the on-screen live middle text countdown
+        showVisualCountdownOverlay(resultCode, data);
+    }
 
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            initializeAndStartRecorder();
+    private void showVisualCountdownOverlay(int resultCode, Intent data) {
+        countdownTextView = new TextView(this);
+        countdownTextView.setTextSize(90); // Giant crisp text
+        countdownTextView.setTextColor(Color.WHITE);
+        countdownTextView.setGravity(Gravity.CENTER);
+        countdownTextView.setTypeface(Typeface.create("sans-serif-condensed-light", Typeface.BOLD));
+        countdownTextView.setShadowLayer(15, 0, 0, Color.BLACK); // Heavy background contrast shadow
+
+        countdownParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+        );
+        countdownParams.gravity = Gravity.CENTER;
+
+        windowManager.addView(countdownTextView, countdownParams);
+
+        Handler handler = new Handler(Looper.getMainLooper());
+        
+        // 3
+        countdownTextView.setText("3");
+
+        // 2
+        handler.postDelayed(() -> {
+            if (countdownTextView != null) countdownTextView.setText("2");
+        }, 1000);
+
+        // 1
+        handler.postDelayed(() -> {
+            if (countdownTextView != null) countdownTextView.setText("1");
+        }, 2000);
+
+        // now
+        handler.postDelayed(() -> {
+            if (countdownTextView != null) {
+                countdownTextView.setTextSize(70);
+                countdownTextView.setText("now");
+            }
         }, 3000);
+
+        // Initialize engine and remove overlay
+        handler.postDelayed(() -> {
+            removeCountdownOverlay();
+            initializeAndStartRecorder();
+        }, 3800);
+    }
+
+    private void removeCountdownOverlay() {
+        if (countdownTextView != null && windowManager != null) {
+            try {
+                windowManager.removeView(countdownTextView);
+            } catch (Exception e) {}
+            countdownTextView = null;
+        }
     }
 
     private void initializeAndStartRecorder() {
@@ -338,10 +392,10 @@ public class SmartAccessibilityService extends AccessibilityService {
             isRecording = true;
 
             updateNotificationToRecording();
-            Toast.makeText(this, "রেকর্ডিং শুরু হয়েছে (60 FPS, Max Resolution)", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "রেকর্ডিং শুরু হয়েছে (60 FPS)", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(this, "রেকর্ডিং শুরু করা যায়নি: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "রেকর্ডিং ব্যর্থ হয়েছে: " + e.getMessage(), Toast.LENGTH_LONG).show();
             stopScreenRecording();
         }
     }
@@ -380,7 +434,7 @@ public class SmartAccessibilityService extends AccessibilityService {
         }
         isRecording = false;
         stopForeground(true);
-        Toast.makeText(this, "রেকর্ডিং গ্যালারির Movies ফোল্ডারে সেভ হয়েছে!", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "রেকর্ডিং Movies ফোল্ডারে সেভ হয়েছে!", Toast.LENGTH_SHORT).show();
     }
 
     private int getCurrentSystemBrightness() {
@@ -449,6 +503,7 @@ public class SmartAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        removeCountdownOverlay();
         stopScreenRecording();
         hideMenu();
         if (brightnessObserver != null) getContentResolver().unregisterContentObserver(brightnessObserver);
