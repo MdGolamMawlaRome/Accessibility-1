@@ -12,11 +12,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.database.ContentObserver;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.AudioManager;
@@ -40,6 +43,7 @@ import android.view.WindowManager;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
@@ -57,7 +61,6 @@ public class SmartAccessibilityService extends AccessibilityService {
     private VirtualDisplay virtualDisplay;
     private MediaRecorder mediaRecorder;
 
-    // Visual Countdown Elements
     private TextView countdownTextView;
     private WindowManager.LayoutParams countdownParams;
 
@@ -126,6 +129,9 @@ public class SmartAccessibilityService extends AccessibilityService {
         LinearLayout popupRoot = popupView.findViewById(R.id.popupRoot);
         popupRoot.setOnClickListener(v -> { });
 
+        // Apply Dynamic Theme Lookups Programmatically
+        applyThemeStyles(popupRoot);
+
         setupSliders();
         setupButtons();
 
@@ -156,6 +162,68 @@ public class SmartAccessibilityService extends AccessibilityService {
         windowManager.addView(popupView, params);
     }
 
+    private void applyThemeStyles(LinearLayout popupRoot) {
+        int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        boolean isDarkTheme = nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+
+        // Set palette colors based on theme configuration state
+        int panelBgColor = isDarkTheme ? Color.parseColor("#E6121212") : Color.parseColor("#E6F5F5F7");
+        int primaryTextColor = isDarkTheme ? Color.parseColor("#FFFFFF") : Color.parseColor("#1C1C1E");
+        int actionTextColor = isDarkTheme ? Color.parseColor("#E0E0E0") : Color.parseColor("#555555");
+        int iconTint = isDarkTheme ? Color.white(1.0f) : Color.parseColor("#1C1C1E");
+        int trackSliderBackground = isDarkTheme ? Color.parseColor("#33FFFFFF") : Color.parseColor("#26000000");
+
+        // Mutate dynamic shape corner background color values safely
+        GradientDrawable backgroundShape = (GradientDrawable) popupRoot.getBackground();
+        if (backgroundShape != null) {
+            backgroundShape.setColor(panelBgColor);
+        }
+
+        // Apply Icon Color Elements Filter
+        ImageView imgBrightness = popupView.findViewById(R.id.imgBrightness);
+        ImageView imgVolume = popupView.findViewById(R.id.imgVolume);
+        ImageView imgRecord = popupView.findViewById(R.id.imgRecord);
+        ImageView imgScreenshot = popupView.findViewById(R.id.imgScreenshot);
+        ImageView imgLock = popupView.findViewById(R.id.imgLock);
+
+        if (imgBrightness != null) imgBrightness.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
+        if (imgVolume != null) imgVolume.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
+        if (imgRecord != null) imgRecord.setColorFilter(isRecording ? Color.parseColor("#FF4444") : iconTint, PorterDuff.Mode.SRC_IN);
+        if (imgScreenshot != null) imgScreenshot.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
+        if (imgLock != null) imgLock.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
+
+        // Apply Text Colors Elements
+        TextView brightnessPercentText = popupView.findViewById(R.id.brightnessPercentText);
+        TextView volumePercentText = popupView.findViewById(R.id.volumePercentText);
+        TextView btnRecordText = popupView.findViewById(R.id.btnRecordText);
+        TextView btnScreenshotText = popupView.findViewById(R.id.btnScreenshotText);
+        TextView btnLockText = popupView.findViewById(R.id.btnLockText);
+
+        if (brightnessPercentText != null) brightnessPercentText.setTextColor(primaryTextColor);
+        if (volumePercentText != null) volumePercentText.setTextColor(primaryTextColor);
+        if (btnRecordText != null) btnRecordText.setTextColor(actionTextColor);
+        if (btnScreenshotText != null) btnScreenshotText.setTextColor(actionTextColor);
+        if (btnLockText != null) btnLockText.setTextColor(actionTextColor);
+
+        // Apply Track Sliders Colors Tint Elements
+        SeekBar brightnessSlider = popupView.findViewById(R.id.brightnessSlider);
+        SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            ColorStateList blueStateList = ColorStateList.valueOf(Color.parseColor("#FF0076FF"));
+            ColorStateList backgroundStateList = ColorStateList.valueOf(trackSliderBackground);
+
+            if (brightnessSlider != null) {
+                brightnessSlider.setProgressTintList(blueStateList);
+                brightnessSlider.setProgressBackgroundTintList(backgroundStateList);
+            }
+            if (volumeSlider != null) {
+                volumeSlider.setProgressTintList(blueStateList);
+                volumeSlider.setProgressBackgroundTintList(backgroundStateList);
+            }
+        }
+    }
+
     private void hideMenu() {
         if (popupView != null && windowManager != null) {
             try {
@@ -168,6 +236,11 @@ public class SmartAccessibilityService extends AccessibilityService {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        // If theme alters while menu container state is live, refresh layouts instantly
+        if (popupView != null) {
+            hideMenu();
+            showMenu();
+        }
     }
 
     private int dpToPx(int dp) {
@@ -229,7 +302,6 @@ public class SmartAccessibilityService extends AccessibilityService {
             btnRecordText.setText("Record");
         }
 
-        // PERFECT TOGGLE: Starts if stopped, instantly terminates if active
         popupView.findViewById(R.id.btnRecord).setOnClickListener(v -> {
             hideMenu();
             if (!isRecording) {
@@ -281,17 +353,16 @@ public class SmartAccessibilityService extends AccessibilityService {
             return;
         }
 
-        // Display the on-screen live middle text countdown
         showVisualCountdownOverlay(resultCode, data);
     }
 
     private void showVisualCountdownOverlay(int resultCode, Intent data) {
         countdownTextView = new TextView(this);
-        countdownTextView.setTextSize(90); // Giant crisp text
+        countdownTextView.setTextSize(90);
         countdownTextView.setTextColor(Color.WHITE);
         countdownTextView.setGravity(Gravity.CENTER);
         countdownTextView.setTypeface(Typeface.create("sans-serif-condensed-light", Typeface.BOLD));
-        countdownTextView.setShadowLayer(15, 0, 0, Color.BLACK); // Heavy background contrast shadow
+        countdownTextView.setShadowLayer(15, 0, 0, Color.BLACK);
 
         countdownParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -306,20 +377,16 @@ public class SmartAccessibilityService extends AccessibilityService {
 
         Handler handler = new Handler(Looper.getMainLooper());
         
-        // 3
         countdownTextView.setText("3");
 
-        // 2
         handler.postDelayed(() -> {
             if (countdownTextView != null) countdownTextView.setText("2");
         }, 1000);
 
-        // 1
         handler.postDelayed(() -> {
             if (countdownTextView != null) countdownTextView.setText("1");
         }, 2000);
 
-        // now
         handler.postDelayed(() -> {
             if (countdownTextView != null) {
                 countdownTextView.setTextSize(70);
@@ -327,7 +394,6 @@ public class SmartAccessibilityService extends AccessibilityService {
             }
         }, 3000);
 
-        // Initialize engine and remove overlay
         handler.postDelayed(() -> {
             removeCountdownOverlay();
             initializeAndStartRecorder();
