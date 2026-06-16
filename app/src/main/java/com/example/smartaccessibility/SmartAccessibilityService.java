@@ -129,7 +129,6 @@ public class SmartAccessibilityService extends AccessibilityService {
         LinearLayout popupRoot = popupView.findViewById(R.id.popupRoot);
         popupRoot.setOnClickListener(v -> { });
 
-        // Apply Dynamic Theme Lookups Programmatically
         applyThemeStyles(popupRoot);
 
         setupSliders();
@@ -166,20 +165,17 @@ public class SmartAccessibilityService extends AccessibilityService {
         int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         boolean isDarkTheme = nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
 
-        // Set palette colors based on theme configuration state
         int panelBgColor = isDarkTheme ? Color.parseColor("#E6121212") : Color.parseColor("#E6F5F5F7");
         int primaryTextColor = isDarkTheme ? Color.parseColor("#FFFFFF") : Color.parseColor("#1C1C1E");
         int actionTextColor = isDarkTheme ? Color.parseColor("#E0E0E0") : Color.parseColor("#555555");
-        int iconTint = isDarkTheme ? Color.white(1.0f) : Color.parseColor("#1C1C1E");
+        int iconTint = isDarkTheme ? Color.WHITE : Color.parseColor("#1C1C1E");
         int trackSliderBackground = isDarkTheme ? Color.parseColor("#33FFFFFF") : Color.parseColor("#26000000");
 
-        // Mutate dynamic shape corner background color values safely
         GradientDrawable backgroundShape = (GradientDrawable) popupRoot.getBackground();
         if (backgroundShape != null) {
             backgroundShape.setColor(panelBgColor);
         }
 
-        // Apply Icon Color Elements Filter
         ImageView imgBrightness = popupView.findViewById(R.id.imgBrightness);
         ImageView imgVolume = popupView.findViewById(R.id.imgVolume);
         ImageView imgRecord = popupView.findViewById(R.id.imgRecord);
@@ -192,7 +188,6 @@ public class SmartAccessibilityService extends AccessibilityService {
         if (imgScreenshot != null) imgScreenshot.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
         if (imgLock != null) imgLock.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
 
-        // Apply Text Colors Elements
         TextView brightnessPercentText = popupView.findViewById(R.id.brightnessPercentText);
         TextView volumePercentText = popupView.findViewById(R.id.volumePercentText);
         TextView btnRecordText = popupView.findViewById(R.id.btnRecordText);
@@ -205,7 +200,6 @@ public class SmartAccessibilityService extends AccessibilityService {
         if (btnScreenshotText != null) btnScreenshotText.setTextColor(actionTextColor);
         if (btnLockText != null) btnLockText.setTextColor(actionTextColor);
 
-        // Apply Track Sliders Colors Tint Elements
         SeekBar brightnessSlider = popupView.findViewById(R.id.brightnessSlider);
         SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
 
@@ -236,7 +230,6 @@ public class SmartAccessibilityService extends AccessibilityService {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        // If theme alters while menu container state is live, refresh layouts instantly
         if (popupView != null) {
             hideMenu();
             showMenu();
@@ -295,7 +288,6 @@ public class SmartAccessibilityService extends AccessibilityService {
 
     private void setupButtons() {
         TextView btnRecordText = popupView.findViewById(R.id.btnRecordText);
-        
         if (isRecording) {
             btnRecordText.setText("Stop Rec");
         } else {
@@ -376,7 +368,6 @@ public class SmartAccessibilityService extends AccessibilityService {
         windowManager.addView(countdownTextView, countdownParams);
 
         Handler handler = new Handler(Looper.getMainLooper());
-        
         countdownTextView.setText("3");
 
         handler.postDelayed(() -> {
