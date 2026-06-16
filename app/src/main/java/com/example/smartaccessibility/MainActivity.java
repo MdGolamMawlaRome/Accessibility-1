@@ -1,105 +1,51 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="?android:attr/windowBackground">
+package com.example.smartaccessibility;
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp"
-        android:gravity="center_horizontal">
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Smart Accessibility"
-            android:textColor="?android:attr/textColorPrimary"
-            android:textSize="26sp"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp"/>
+public class MainActivity extends AppCompatActivity {
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="System Control Panel Hub"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="14sp"
-            android:layout_marginBottom="24dp"/>
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="?android:attr/selectableItemBackground"
-            android:padding="16dp"
-            android:layout_marginBottom="20dp"
-            android:elevation="2dp">
+        Button btnWriteSettings = findViewById(R.id.btnWriteSettings);
+        Button btnAccessibility = findViewById(R.id.btnAccessibility);
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🎨 Theme Configuration Status"
-                android:textColor="#FF0076FF"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="6dp"/>
+        btnWriteSettings.setOnClickListener(v -> {
+            if (!Settings.System.canWrite(MainActivity.this)) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            } else {
+                Toast.makeText(MainActivity.this, "Write Settings Permission already granted, Bhai!", Toast.LENGTH_SHORT).show();
+            }
+        });
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="This application explicitly monitors and follows your global Android System Theme. It seamlessly shifts between a completely Light Theme and a completely Dark Theme dynamically without requiring manual adjustments."
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.2"/>
-        </LinearLayout>
+        btnAccessibility.setOnClickListener(v -> {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            startActivity(intent);
+            Toast.makeText(MainActivity.this, "Find 'Smart Accessibility' and turn it ON", Toast.LENGTH_LONG).show();
+        });
+    }
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🛠️ Core Features Guide"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="12dp"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="• Smart Volume &amp; Brightness Sliders: Adaptive track sliders that match your active device visibility settings.\n\n• Advanced Screen Recording: Ultra high-quality capture toggled on/off using a single button with a real-time 3-2-1 center countdown overlay.\n\n• One-Touch Utility Buttons: Rapid access to trigger native hardware screenshots and instance secure display locking mechanisms."
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.3"/>
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/btnWriteSettings"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="Grant Brightness Write Permission"
-            android:backgroundTint="#FF0076FF"
-            android:textColor="#FFFFFF"
-            android:layout_marginBottom="12dp"
-            android:textStyle="bold"/>
-
-        <Button
-            android:id="@+id/btnAccessibility"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="Open Accessibility Service Menu"
-            android:backgroundTint="?android:attr/colorForeground"
-            android:textColor="?android:attr/colorBackground"
-            android:textStyle="bold"/>
-
-    </LinearLayout>
-</ScrollView>
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Friendly dynamic status update check on window focus return
+        if (Settings.System.canWrite(this)) {
+            Button btnWriteSettings = findViewById(R.id.btnWriteSettings);
+            if (btnWriteSettings != null) {
+                btnWriteSettings.setText("Brightness Permission: ACTIVE");
+                btnWriteSettings.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#2E7D32")));
+            }
+        }
+    }
+}
