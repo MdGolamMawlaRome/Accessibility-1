@@ -117,46 +117,32 @@ public class SmartAccessibilityService extends AccessibilityService {
 
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT, // WRAP_CONTENT ব্যবহার করা হয়েছে যাতে এটি ফিক্সড উচ্চতা পায়
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
-
-        View fullscreenRoot = popupView.findViewById(R.id.fullscreenRoot);
-        fullscreenRoot.setOnClickListener(v -> hideMenu());
+        params.gravity = Gravity.BOTTOM;
 
         LinearLayout popupRoot = popupView.findViewById(R.id.popupRoot);
-        popupRoot.setOnClickListener(v -> { });
-
         applyThemeStyles(popupRoot);
-
         setupSliders();
         setupButtons();
 
-        FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) popupRoot.getLayoutParams();
-        layoutParams.gravity = Gravity.BOTTOM;
-        layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT;
-        layoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
-            popupView.setOnApplyWindowInsetsListener((v, insets) -> {
-                int navBarHeight = 0;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    navBarHeight = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
-                } else {
-                    navBarHeight = insets.getSystemWindowInsetBottom();
-                }
-                layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), navBarHeight + 5);
-                popupRoot.setLayoutParams(layoutParams);
-                return insets;
-            });
-        } else {
-            int resourceId = getResources().getIdentifier("navigation_bar_height", "dimen", "android");
-            int navBarHeight = (resourceId > 0) ? getResources().getDimensionPixelSize(resourceId) : 0;
-            layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), navBarHeight + 5);
-            popupRoot.setLayoutParams(layoutParams);
-        }
+        // নেভিগেশন বার ডিটেকশন ও পজিশনিং লজিক
+        popupView.setOnApplyWindowInsetsListener((v, insets) -> {
+            int navBarHeight = 0;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                navBarHeight = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+            } else {
+                navBarHeight = insets.getSystemWindowInsetBottom();
+            }
+            
+            WindowManager.LayoutParams p = (WindowManager.LayoutParams) v.getLayoutParams();
+            p.y = navBarHeight + 30; // নেভিগেশন বারের উচ্চতার সাথে অতিরিক্ত ৩০ পিক্সেল গ্যাপ
+            windowManager.updateViewLayout(v, p);
+            return insets;
+        });
 
         windowManager.addView(popupView, params);
     }
@@ -318,33 +304,24 @@ public class SmartAccessibilityService extends AccessibilityService {
 
     private void startScreenRecording(int resultCode, Intent data) {
         if (isRecording) return;
-
         String channelId = "screen_record_channel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(channelId, "Screen Record", NotificationManager.IMPORTANCE_LOW);
             NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (manager != null) manager.createNotificationChannel(channel);
         }
-
         Notification.Builder builder = new Notification.Builder(this, channelId)
-                .setContentTitle("Screen Recording Setup")
-                .setContentText("Preparing internal systems...")
+                .setContentTitle("Screen Recording Active")
+                .setContentText("Recording...")
                 .setSmallIcon(android.R.drawable.ic_media_play);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(102, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
         } else {
             startForeground(102, builder.build());
         }
-
         MediaProjectionManager projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         mediaProjection = projectionManager.getMediaProjection(resultCode, data);
-
-        if (mediaProjection == null) {
-            stopForeground(true);
-            return;
-        }
-
+        if (mediaProjection == null) { stopForeground(true); return; }
         showVisualCountdownOverlay(resultCode, data);
     }
 
@@ -354,157 +331,78 @@ public class SmartAccessibilityService extends AccessibilityService {
         countdownTextView.setTextColor(Color.WHITE);
         countdownTextView.setGravity(Gravity.CENTER);
         countdownTextView.setTypeface(Typeface.create("sans-serif-condensed-light", Typeface.BOLD));
-        countdownTextView.setShadowLayer(15, 0, 0, Color.BLACK);
-
         countdownParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
                 PixelFormat.TRANSLUCENT
         );
-        countdownParams.gravity = Gravity.CENTER;
-
         windowManager.addView(countdownTextView, countdownParams);
-
         Handler handler = new Handler(Looper.getMainLooper());
         countdownTextView.setText("3");
-
-        handler.postDelayed(() -> {
-            if (countdownTextView != null) countdownTextView.setText("2");
-        }, 1000);
-
-        handler.postDelayed(() -> {
-            if (countdownTextView != null) countdownTextView.setText("1");
-        }, 2000);
-
-        handler.postDelayed(() -> {
-            if (countdownTextView != null) {
-                countdownTextView.setTextSize(70);
-                countdownTextView.setText("now");
-            }
-        }, 3000);
-
-        handler.postDelayed(() -> {
-            removeCountdownOverlay();
-            initializeAndStartRecorder();
-        }, 3800);
+        handler.postDelayed(() -> { if (countdownTextView != null) countdownTextView.setText("2"); }, 1000);
+        handler.postDelayed(() -> { if (countdownTextView != null) countdownTextView.setText("1"); }, 2000);
+        handler.postDelayed(() -> { removeCountdownOverlay(); initializeAndStartRecorder(); }, 3000);
     }
 
     private void removeCountdownOverlay() {
         if (countdownTextView != null && windowManager != null) {
-            try {
-                windowManager.removeView(countdownTextView);
-            } catch (Exception e) {}
+            try { windowManager.removeView(countdownTextView); } catch (Exception e) {}
             countdownTextView = null;
         }
     }
 
     private void initializeAndStartRecorder() {
         if (mediaProjection == null) return;
-
         DisplayMetrics metrics = new DisplayMetrics();
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
         int width = metrics.widthPixels;
         int height = metrics.heightPixels;
-        int density = metrics.densityDpi;
-
-        if (width % 2 != 0) width--;
-        if (height % 2 != 0) height--;
-
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                mediaRecorder = new MediaRecorder(this);
-            } else {
-                mediaRecorder = new MediaRecorder();
-            }
-
+            mediaRecorder = new MediaRecorder();
             mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
             mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-
             ContentValues values = new ContentValues();
-            values.put(MediaStore.Video.Media.DISPLAY_NAME, "ScreenRec_" + System.currentTimeMillis() + ".mp4");
+            values.put(MediaStore.Video.Media.DISPLAY_NAME, "Rec_" + System.currentTimeMillis() + ".mp4");
             values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
             values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/SmartAccessibility");
             Uri uri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
-
-            if (uri == null) throw new Exception("Failed to create MediaStore URI");
-
             ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "rw");
             mediaRecorder.setOutputFile(pfd.getFileDescriptor());
-
             mediaRecorder.setVideoSize(width, height);
             mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            mediaRecorder.setVideoEncodingBitRate(12 * 1024 * 1024);
-            mediaRecorder.setVideoFrameRate(60);
-
+            mediaRecorder.setVideoEncodingBitRate(8 * 1024 * 1024);
+            mediaRecorder.setVideoFrameRate(30);
             mediaRecorder.prepare();
-
-            virtualDisplay = mediaProjection.createVirtualDisplay(
-                    "SmartScreenCapture", width, height, density,
-                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                    mediaRecorder.getSurface(), null, null);
-
+            virtualDisplay = mediaProjection.createVirtualDisplay("Capture", width, height, metrics.densityDpi,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, mediaRecorder.getSurface(), null, null);
             mediaRecorder.start();
             isRecording = true;
-
-            updateNotificationToRecording();
-            Toast.makeText(this, "রেকর্ডিং শুরু হয়েছে (60 FPS)", Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, "রেকর্ডিং ব্যর্থ হয়েছে: " + e.getMessage(), Toast.LENGTH_LONG).show();
-            stopScreenRecording();
-        }
-    }
-
-    private void updateNotificationToRecording() {
-        String channelId = "screen_record_channel";
-        Notification.Builder builder = new Notification.Builder(this, channelId)
-                .setContentTitle("Screen Recording Active")
-                .setContentText("Recording in Ultra Quality (60 FPS)...")
-                .setSmallIcon(android.R.drawable.ic_media_play);
-        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        if (manager != null) {
-            manager.notify(102, builder.build());
-        }
+            Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void stopScreenRecording() {
         if (!isRecording) return;
         try {
-            if (mediaRecorder != null) {
-                mediaRecorder.stop();
-                mediaRecorder.reset();
-                mediaRecorder.release();
-                mediaRecorder = null;
-            }
-            if (virtualDisplay != null) {
-                virtualDisplay.release();
-                virtualDisplay = null;
-            }
-            if (mediaProjection != null) {
-                mediaProjection.stop();
-                mediaProjection = null;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            if (mediaRecorder != null) { mediaRecorder.stop(); mediaRecorder.release(); }
+            if (virtualDisplay != null) virtualDisplay.release();
+            if (mediaProjection != null) mediaProjection.stop();
+        } catch (Exception e) { e.printStackTrace(); }
         isRecording = false;
         stopForeground(true);
-        Toast.makeText(this, "রেকর্ডিং Movies ফোল্ডারে সেভ হয়েছে!", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Recording saved", Toast.LENGTH_SHORT).show();
     }
 
     private int getCurrentSystemBrightness() {
-        try {
-            int value = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS);
-            return (value * 100) / 255;
-        } catch (Exception e) { return 50; }
+        try { return (Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS) * 100) / 255; } 
+        catch (Exception e) { return 50; }
     }
 
     private void setSystemBrightness(int percent) {
         if (Settings.System.canWrite(this)) {
-            int value = (percent * 255) / 100;
-            Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, value);
+            Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, (percent * 255) / 100);
         }
     }
 
@@ -513,56 +411,32 @@ public class SmartAccessibilityService extends AccessibilityService {
             @Override
             public void onChange(boolean selfChange) {
                 if (popupView != null) {
-                    SeekBar brightnessSlider = popupView.findViewById(R.id.brightnessSlider);
-                    TextView brightnessText = popupView.findViewById(R.id.brightnessPercentText);
-                    if (brightnessSlider != null && brightnessText != null) {
-                        int curBrightness = getCurrentSystemBrightness();
-                        brightnessSlider.setProgress(curBrightness);
-                        brightnessText.setText(curBrightness + "%");
-                    }
+                    SeekBar slider = popupView.findViewById(R.id.brightnessSlider);
+                    if (slider != null) slider.setProgress(getCurrentSystemBrightness());
                 }
             }
         };
-        getContentResolver().registerContentObserver(
-                Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS),
-                false, brightnessObserver);
-
+        getContentResolver().registerContentObserver(Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS), false, brightnessObserver);
+        
         systemReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                String action = intent.getAction();
-                if ("android.media.VOLUME_CHANGED_ACTION".equals(action)) {
-                    if (popupView != null) {
-                        SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
-                        TextView volumeText = popupView.findViewById(R.id.volumePercentText);
-                        updateVolumeSlider(volumeSlider, volumeText);
-                    }
-                } else if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action) || Intent.ACTION_SCREEN_OFF.equals(action)) {
+                if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(intent.getAction()) || Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
                     hideMenu();
                 }
             }
         };
         IntentFilter filter = new IntentFilter();
-        filter.addAction("android.media.VOLUME_CHANGED_ACTION");
         filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(systemReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(systemReceiver, filter);
-        }
+        registerReceiver(systemReceiver, filter);
     }
 
     @Override public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {}
     @Override public void onInterrupt() {}
-    
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        removeCountdownOverlay();
-        stopScreenRecording();
-        hideMenu();
+    @Override public void onDestroy() { 
+        super.onDestroy(); 
+        hideMenu(); 
         if (brightnessObserver != null) getContentResolver().unregisterContentObserver(brightnessObserver);
         if (systemReceiver != null) unregisterReceiver(systemReceiver);
     }
