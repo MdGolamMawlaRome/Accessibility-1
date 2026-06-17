@@ -9,97 +9,55 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp"
-        android:gravity="center_horizontal">
+        android:padding="24dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Smart Accessibility"
             android:textColor="?android:attr/textColorPrimary"
-            android:textSize="26sp"
+            android:textSize="28sp"
             android:textStyle="bold"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginTop="32dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="System Control Panel Hub"
+            android:text="System Control Hub"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="14sp"
-            android:layout_marginBottom="24dp"/>
+            android:textSize="16sp"
+            android:layout_marginBottom="48dp"/>
 
-        <LinearLayout
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="?android:attr/selectableItemBackground"
-            android:padding="16dp"
-            android:layout_marginBottom="20dp"
-            android:elevation="2dp">
+            android:text="আমাদের সম্পর্কে:"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorPrimary"
+            android:layout_marginBottom="8dp"/>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🎨 Theme Configuration Status"
-                android:textColor="#FF0076FF"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="6dp"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="This application explicitly monitors and follows your global Android System Theme. It seamlessly shifts between a completely Light Theme and a completely Dark Theme dynamically without requiring manual adjustments."
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.2"/>
-        </LinearLayout>
-
-        <LinearLayout
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp"
-            android:layout_marginBottom="24dp">
+            android:text="এই অ্যাপ্লিকেশনটি আপনার ডিভাইসের সিস্টেম সেটিংস এবং কার্যকারিতা সহজতর করার জন্য তৈরি করা হয়েছে। এটি একটি নিরাপদ এবং হালকা ওজনের টুল যা আপনার দৈনন্দিন স্মার্টফোন ব্যবহারের অভিজ্ঞতা উন্নত করবে।"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginBottom="32dp"
+            android:lineSpacingMultiplier="1.3"/>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🛠️ Core Features Guide"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="12dp"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="• Smart Volume &amp; Brightness Sliders: Adaptive track sliders that match your active device visibility settings.\n\n• Advanced Screen Recording: Ultra high-quality capture toggled on/off using a single button with a real-time 3-2-1 center countdown overlay.\n\n• One-Touch Utility Buttons: Rapid access to trigger native hardware screenshots and instance secure display locking mechanisms."
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.3"/>
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/btnWriteSettings"
+        <TextView
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="Grant Brightness Write Permission"
-            android:backgroundTint="#FF0076FF"
-            android:textColor="#FFFFFF"
-            android:layout_marginBottom="12dp"
-            android:textStyle="bold"/>
+            android:layout_height="wrap_content"
+            android:text="অ্যাপটি যা যা করতে সক্ষম:"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorPrimary"
+            android:layout_marginBottom="16dp"/>
 
-        <Button
-            android:id="@+id/btnAccessibility"
+        <TextView
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="Open Accessibility Service Menu"
-            android:backgroundTint="?android:attr/colorForeground"
-            android:textColor="?android:attr/colorBackground"
-            android:textStyle="bold"/>
+            android:layout_height="wrap_content"
+            android:text="• ডার্ক এবং লাইট থিমের সাথে স্বয়ংক্রিয়ভাবে খাপ খাইয়ে নেওয়া।\n\n• দ্রুত ব্রাইটনেস এবং ভলিউম নিয়ন্ত্রণ।\n\n• উচ্চ মানের স্ক্রিন রেকর্ডিং এবং স্ক্রিনশট সুবিধা।"
+            android:textColor="?android:attr/textColorSecondary"
+            android:lineSpacingMultiplier="1.5"/>
 
     </LinearLayout>
 </ScrollView>
