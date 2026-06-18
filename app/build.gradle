@@ -17,6 +17,15 @@ android {
         resConfigs "en", "bn"
     }
 
+    signingConfigs {
+        releaseConfig {
+            storeFile file(System.getenv("KEYSTORE_PATH") ?: "app_keystore.jks")
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "mysecretpassword"
+            keyAlias System.getenv("KEY_ALIAS") ?: "app_key_alias"
+            keyPassword System.getenv("KEY_PASSWORD") ?: "mysecretpassword"
+        }
+    }
+
     buildTypes {
         release {
             // ২. অব্যবহৃত লাইব্রেরি কোড মুছে ফেলার জন্য এটি true করা হলো
@@ -25,6 +34,7 @@ android {
             // ৩. অব্যবহৃত লেআউট এবং আইকন ফাইলগুলো স্বয়ংক্রিয়ভাবে রিমুভ করবে
             shrinkResources true
             
+            signingConfig signingConfigs.releaseConfig
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
