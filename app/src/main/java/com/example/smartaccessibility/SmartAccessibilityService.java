@@ -96,17 +96,17 @@ public class SmartAccessibilityService extends AccessibilityService {
         setupSliders();
         setupButtons();
 
-        // ডাইনামিক পজিশন: স্ক্রিনের ১১ ভাগের ১ ভাগ গ্যাপ নির্ধারণ
+        // 1/11 Dynamic height placement from the screen baseline
         DisplayMetrics metrics = new DisplayMetrics();
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
         int screenHeight = metrics.heightPixels;
-        int bottomGap = screenHeight / 11; // সম্পূর্ণ স্ক্রিনের উচ্চতার ১১ ভাগের ১ ভাগ
+        int bottomGap = screenHeight / 11;
 
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) popupRoot.getLayoutParams();
         layoutParams.gravity = Gravity.BOTTOM;
         layoutParams.width = FrameLayout.LayoutParams.MATCH_PARENT;
         layoutParams.height = FrameLayout.LayoutParams.WRAP_CONTENT;
-        layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), bottomGap); // নিচ থেকে bottomGap পরিমাণ উপরে
+        layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), bottomGap);
         popupRoot.setLayoutParams(layoutParams);
 
         windowManager.addView(popupView, params);
@@ -178,14 +178,19 @@ public class SmartAccessibilityService extends AccessibilityService {
         TextView brightnessText = popupView.findViewById(R.id.brightnessPercentText);
         
         int currentBrightness = getCurrentSystemBrightness();
-        brightnessSlider.setProgress(currentBrightness);
-        brightnessText.setText(((currentBrightness * 100) / 255) + "%");
+        int brightnessProgress = (currentBrightness * 100) / 255;
+        brightnessSlider.setMax(100);
+        brightnessSlider.setProgress(brightnessProgress);
+        brightnessText.setText(brightnessProgress + "%");
 
         brightnessSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                brightnessText.setText(((progress * 100) / 255) + "%");
-                if (fromUser) setSystemBrightness(progress);
+                brightnessText.setText(progress + "%");
+                if (fromUser) {
+                    int systemVal = (progress * 255) / 100;
+                    setSystemBrightness(systemVal);
+                }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
@@ -194,22 +199,21 @@ public class SmartAccessibilityService extends AccessibilityService {
         SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
         TextView volumeText = popupView.findViewById(R.id.volumePercentText);
         
-        // ভলিউম এরর ফিক্স: স্লাইডারের ম্যাক্স ভ্যালু সিস্টেমের ম্যাক্স ভলিউমের সমান করা হলো
         int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         int curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
         
-        volumeSlider.setMax(maxVol);
-        volumeSlider.setProgress(curVol);
-        int volPercentage = maxVol > 0 ? (curVol * 100) / maxVol : 0;
-        volumeText.setText(volPercentage + "%");
+        volumeSlider.setMax(100);
+        int volProgress = maxVol > 0 ? (curVol * 100) / maxVol : 0;
+        volumeSlider.setProgress(volProgress);
+        volumeText.setText(volProgress + "%");
 
         volumeSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                int percentage = maxVol > 0 ? (progress * 100) / maxVol : 0;
-                volumeText.setText(percentage + "%");
+                volumeText.setText(progress + "%");
                 if (fromUser) {
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0);
+                    int systemVol = maxVol > 0 ? Math.round((float) progress * maxVol / 100f) : 0;
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, systemVol, 0);
                 }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -221,26 +225,22 @@ public class SmartAccessibilityService extends AccessibilityService {
         if (volumeSlider == null || volumeText == null) return;
         int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         int curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        volumeSlider.setMax(maxVol);
-        volumeSlider.setProgress(curVol);
-        int volPercentage = maxVol > 0 ? (curVol * 100) / maxVol : 0;
-        volumeText.setText(volPercentage + "%");
+        int volProgress = maxVol > 0 ? (curVol * 100) / maxVol : 0;
+        volumeSlider.setProgress(volProgress);
+        volumeText.setText(volProgress + "%");
     }
 
     private void setupButtons() {
-        // স্ক্রিনশট বাটন
         popupView.findViewById(R.id.btnScreenshot).setOnClickListener(v -> {
             hideMenu();
             performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT);
         });
 
-        // নতুন পাওয়ার বাটন: আগে মেনু হাইড হবে, তারপর সিস্টেম পাওয়ার ডায়ালগ আসবে
         popupView.findViewById(R.id.btnPower).setOnClickListener(v -> {
             hideMenu();
             performGlobalAction(GLOBAL_ACTION_POWER_DIALOG);
         });
 
-        // লক বাটন
         popupView.findViewById(R.id.btnLock).setOnClickListener(v -> {
             hideMenu();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -274,8 +274,9 @@ public class SmartAccessibilityService extends AccessibilityService {
                     TextView brightnessText = popupView.findViewById(R.id.brightnessPercentText);
                     if (brightnessSlider != null && brightnessText != null) {
                         int curBrightness = getCurrentSystemBrightness();
-                        brightnessSlider.setProgress(curBrightness);
-                        brightnessText.setText(((curBrightness * 100) / 255) + "%");
+                        int progress = (curBrightness * 100) / 255;
+                        brightnessSlider.setProgress(progress);
+                        brightnessText.setText(progress + "%");
                     }
                 }
             }
