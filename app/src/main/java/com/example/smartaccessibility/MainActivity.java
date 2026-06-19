@@ -1,4 +1,4 @@
-package com.example.smartaccessibility;
+package com.gmr.smartaccessibility;
 
 import android.content.Intent;
 import android.net.Uri;
