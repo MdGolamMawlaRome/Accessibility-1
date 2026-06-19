@@ -1,4 +1,4 @@
-package com.example.smartaccessibility;
+package com.gmr.smartaccessibility;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityButtonController;
