@@ -1,9 +1,14 @@
-name: Build Signed APKs
+name: Build Android APK
 
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
+
+# 1. Automatically cancels old builds cleanly if you push new code while one is running
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -18,26 +23,34 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.4'
+
+    - name: Generate Gradle Wrapper
+      run: gradle wrapper --gradle-version 8.4
 
     - name: Decode Keystore File
       run: |
         mkdir -p app
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/app_keystore.jks
 
-    - name: Grant Execute Permission to Gradle
+    - name: Make Gradle Executable
       run: chmod +x gradlew
 
-    - name: Build Signed Release APK
+    # 2. Added --no-daemon flag to prevent GitHub from hanging on background tasks
+    - name: Build with Gradle Wrapper
       env:
         KEYSTORE_PATH: "app_keystore.jks"
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease --no-daemon
 
-    - name: Upload Signed APK
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: SmartAccessibility-Signed-APK
-        path: app/build/outputs/apk/release/*.apk
+        path: "app/build/outputs/apk/release/*.apk"
