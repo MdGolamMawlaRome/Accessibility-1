@@ -12,11 +12,13 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+        
+        // ১. শুধুমাত্র ইংরেজি এবং বাংলা ভাষা রেখে বাকি সব ফালতু ভাষা রিমুভ করবে
         resConfigs "en", "bn"
     }
 
     signingConfigs {
-        config {
+        releaseConfig {
             storeFile file(System.getenv("KEYSTORE_PATH") ?: "app_keystore.jks")
             storePassword System.getenv("KEYSTORE_PASSWORD") ?: "mysecretpassword"
             keyAlias System.getenv("KEY_ALIAS") ?: "app_key_alias"
@@ -26,9 +28,13 @@ android {
 
     buildTypes {
         release {
+            // ২. অব্যবহৃত লাইব্রেরি কোড মুছে ফেলার জন্য এটি true করা হলো
             minifyEnabled true
+            
+            // ৩. অব্যবহৃত লেআউট এবং আইকন ফাইলগুলো স্বয়ংক্রিয়ভাবে রিমুভ করবে
             shrinkResources true
-            signingConfig signingConfigs.config
+            
+            signingConfig signingConfigs.releaseConfig
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
