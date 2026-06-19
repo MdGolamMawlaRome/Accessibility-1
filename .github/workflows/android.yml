@@ -1,13 +1,9 @@
-name: Build Android APK
+name: Build Signed APKs
 
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   build:
@@ -22,35 +18,26 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-      with:
-        gradle-version: '8.4'
-
-    - name: Generate Gradle Wrapper
-      run: gradle wrapper --gradle-version 8.4
+        cache: gradle
 
     - name: Decode Keystore File
-      env:
-        ENCRYPTED_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 }}
       run: |
         mkdir -p app
-        echo "$ENCRYPTED_KEYSTORE" | base64 --decode > app/app_keystore.jks
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/app_keystore.jks
 
-    - name: Make Gradle Executable
+    - name: Grant Execute Permission to Gradle
       run: chmod +x gradlew
 
-    - name: Build with Gradle Wrapper
+    - name: Build Signed Release APK
       env:
         KEYSTORE_PATH: "app_keystore.jks"
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      run: ./gradlew assembleRelease --no-daemon
+      run: ./gradlew assembleRelease
 
-    - name: Upload APK Artifact
+    - name: Upload Signed APK
       uses: actions/upload-artifact@v4
       with:
         name: SmartAccessibility-Signed-APK
-        path: "app/build/outputs/apk/release/*.apk"
+        path: app/build/outputs/apk/release/*.apk
