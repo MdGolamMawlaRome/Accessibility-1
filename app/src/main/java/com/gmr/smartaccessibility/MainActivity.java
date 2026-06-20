@@ -1,43 +1,119 @@
 package com.gmr.smartaccessibility;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.TextUtils;
+import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 public class MainActivity extends AppCompatActivity {
+
+    private TextView dynamicHomepageText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // অ্যাপ চালু হওয়ার সাথে সাথে পারমিশন চেক করা হচ্ছে
+        dynamicHomepageText = findViewById(R.id.dynamicHomepageText);
+        
+        loadTextFromAssets();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
         checkRequiredPermissions();
     }
 
-    private void checkRequiredPermissions() {
-        // ১. Write Settings Permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.System.canWrite(this)) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                startActivity(intent);
+    private void loadTextFromAssets() {
+        StringBuilder stringBuilder = new StringBuilder();
+        try (InputStream is = getAssets().open("homepage_info.txt");
+             BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+             
+            String line;
+            while ((line = reader.readLine()) != null) {
+                stringBuilder.append(line).append("\n");
             }
-        }
-
-        // ২. Accessibility Service (এটি সরাসরি ওপেন করা যায়)
-        // ইউজারকে মেনু থেকে অন করতে হয়, তাই এটি সরাসরি সেটিংস পেজে নিয়ে যাচ্ছে
-        if (!isAccessibilityServiceEnabled()) {
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            startActivity(intent);
+            dynamicHomepageText.setText(stringBuilder.toString());
+            
+        } catch (IOException e) {
+            dynamicHomepageText.setText("Welcome to Smart Accessibility.\n\n(Note: homepage_info.txt file not found in assets folder. Please create it to edit this text.)");
         }
     }
 
-    private boolean isAccessibilityServiceEnabled() {
-        // এখানে সার্ভিস অন আছে কি না তার লজিক চেক করা যেতে পারে
-        return false; 
+    private void checkRequiredPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.System.canWrite(this)) {
+                showWriteSettingsDialog();
+                return; 
+            }
+        }
+
+        if (!isAccessibilityServiceEnabled(SmartAccessibilityService.class)) {
+            showAccessibilityDialog();
+        }
+    }
+
+    private void showWriteSettingsDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Permission Required")
+                .setMessage("Smart Accessibility needs permission to modify system settings to control your brightness. Please allow this in the next screen.")
+                .setCancelable(false)
+                .setPositiveButton("Open Settings", (dialog, which) -> {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                })
+                .show();
+    }
+
+    private void showAccessibilityDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Accessibility Required")
+                .setMessage("To control volume, take screenshots, and show the overlay, please enable 'Smart Accessibility' in the Accessibility settings.")
+                .setCancelable(false)
+                .setPositiveButton("Open Accessibility", (dialog, which) -> {
+                    Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                    startActivity(intent);
+                })
+                .show();
+    }
+
+    private boolean isAccessibilityServiceEnabled(Class<?> serviceClass) {
+        int accessibilityEnabled = 0;
+        final String service = getPackageName() + "/" + serviceClass.getCanonicalName();
+        try {
+            accessibilityEnabled = Settings.Secure.getInt(
+                    getApplicationContext().getContentResolver(),
+                    android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
+        } catch (Settings.SettingNotFoundException e) {
+        }
+
+        TextUtils.SimpleStringSplitter colonSplitter = new TextUtils.SimpleStringSplitter(':');
+
+        if (accessibilityEnabled == 1) {
+            String settingValue = Settings.Secure.getString(
+                    getApplicationContext().getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (settingValue != null) {
+                colonSplitter.setString(settingValue);
+                while (colonSplitter.hasNext()) {
+                    String accessibilityService = colonSplitter.next();
+                    if (accessibilityService.equalsIgnoreCase(service)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 }
