@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Smart Accessibility</string>
-    <string name="accessibility_description">এই সার্ভিসটি ভলিউম, ব্রাইটনেস, স্ক্রিনশট এবং ৩ সেকেন্ড ডিলে সহ আল্ট্রা কোয়ালিটি স্ক্রিন রেকর্ডিং করতে সাহায্য করে।</string>
+    <string name="accessibility_description">এই সার্ভিসটি ভলিউম, ব্রাইটনেস নিয়ন্ত্রণ, পাওয়ার মেনু সংক্রান্ত সুবিধা এবং স্ক্রিনশট নিতে সাহায্য করে।</string>
 </resources>
