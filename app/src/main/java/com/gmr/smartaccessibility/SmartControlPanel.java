@@ -129,10 +129,11 @@ public class SmartControlPanel {
             mode == AudioManager.MODE_CALL_SCREENING) {
             return AudioManager.STREAM_VOICE_CALL;
         }
-        if (audioManager.isMusicActive() || audioManager.isMusicActiveByPlayer()) {
+        if (audioManager.isMusicActive()) {  // Removed isMusicActiveByPlayer() - not available on all versions
             return AudioManager.STREAM_MUSIC;
         }
-        if (audioManager.getRingerMode() == AudioManager.RINGER_MODE_RINGING) {
+        if (audioManager.getRingerMode() == AudioManager.RINGER_MODE_NORMAL || 
+            audioManager.getRingerMode() == AudioManager.RINGER_MODE_RINGING) {
             return AudioManager.STREAM_RING;
         }
         return AudioManager.STREAM_MUSIC;
@@ -236,4 +237,4 @@ public class SmartControlPanel {
     private int dpToPx(int dp) {
         return (int) (dp * context.getResources().getDisplayMetrics().density);
     }
-  }
+}
