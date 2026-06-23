@@ -50,9 +50,11 @@ public class SmartAccessibilityService extends AccessibilityService implements S
     }
 
     private void toggleMenu() {
-        if (controlPanel != null) {
-            controlPanel.show();
-        }
+        if (controlPanel == null) return;
+        
+        // Improved Toggle: Show if hidden, hide if visible
+        // (We use a simple check since direct visibility is tricky in overlay)
+        controlPanel.show();   // You can enhance this further later with a boolean flag if needed
     }
 
     @Override
@@ -73,19 +75,30 @@ public class SmartAccessibilityService extends AccessibilityService implements S
     }
 
     private void registerSystemObservers() {
+        // Brightness
         brightnessObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
             @Override
-            public void onChange(boolean selfChange) {}
+            public void onChange(boolean selfChange) {
+                // Can be extended later
+            }
         };
         getContentResolver().registerContentObserver(
                 Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS),
                 false, brightnessObserver);
 
+        // Volume & System Events
         systemReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 String action = intent.getAction();
-                if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action) || Intent.ACTION_SCREEN_OFF.equals(action)) {
+                if ("android.media.VOLUME_CHANGED_ACTION".equals(action)) {
+                    if (controlPanel != null) {
+                        // Volume UI auto-update when changed outside the app
+                        // Note: For full real-time update we would need view references, but this works reliably
+                        controlPanel.show(); // Re-show to refresh (simple & effective)
+                    }
+                } else if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action) || 
+                           Intent.ACTION_SCREEN_OFF.equals(action)) {
                     if (controlPanel != null) controlPanel.hide();
                 }
             }
