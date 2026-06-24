@@ -94,8 +94,9 @@ public class SmartAccessibilityService extends AccessibilityService {
                 String action = intent.getAction();
                 if ("android.media.VOLUME_CHANGED_ACTION".equals(action)) {
                     if (popupView != null) {
-                        SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
-                        TextView volumeText = popupView.findViewById(R.id.volumePercentText);
+                        // এখানে পুরোনো আইডিগুলোর পরিবর্তে সঠিক মেইন আইডি বসানো হয়েছে
+                        SeekBar volumeSlider = popupView.findViewById(R.id.mainVolumeSlider);
+                        TextView volumeText = popupView.findViewById(R.id.mainVolumePercentText);
                         updateVolumeSlider(volumeSlider, volumeText);
                     }
                 } else if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action) || Intent.ACTION_SCREEN_OFF.equals(action)) {
@@ -138,8 +139,9 @@ public class SmartAccessibilityService extends AccessibilityService {
 
         windowManager.addView(popupView, params);
 
-        SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
-        TextView volumeText = popupView.findViewById(R.id.volumePercentText);
+        // এখানেও পুরোনো আইডিগুলোর পরিবর্তে সঠিক মেইন আইডি বসানো হয়েছে
+        SeekBar volumeSlider = popupView.findViewById(R.id.mainVolumeSlider);
+        TextView volumeText = popupView.findViewById(R.id.mainVolumePercentText);
         SeekBar brightnessSlider = popupView.findViewById(R.id.brightnessSlider);
         TextView brightnessText = popupView.findViewById(R.id.brightnessPercentText);
 
