@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
 import android.database.ContentObserver;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -68,7 +69,12 @@ public class SmartAccessibilityService extends AccessibilityService {
                 String action = intent.getAction();
                 if ("android.media.VOLUME_CHANGED_ACTION".equals(action)) {
                     if (popupUIController.isShowing()) {
-                        popupUIController.updateVolumeUI();
+                        int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
+                        if (streamType != -1) {
+                            popupUIController.updateVolumeUI(streamType);
+                        } else {
+                            popupUIController.updateVolumeUI();
+                        }
                     }
                 } else if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action) || Intent.ACTION_SCREEN_OFF.equals(action)) {
                     popupUIController.hideMenu();
