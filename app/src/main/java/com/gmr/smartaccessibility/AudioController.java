@@ -10,21 +10,48 @@ public class AudioController {
         this.audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
     }
 
-    // ডায়নামিক ডিটেকশন লজিক: বর্তমান সিস্টেমের রানিং অবস্থা অনুযায়ী সঠিক অডিও স্ট্রিম বের করা
-    public int getActiveStream() {
-        int mode = audioManager.getMode();
+    // স্মার্ট লজিক: রিংটোন এবং নোটিফিকেশন মার্জ করা আছে কিনা তা চেক করা
+    public boolean isNotificationAndRingMerged() {
+        int ringMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING);
+        int notifMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
         
-        if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
-            return AudioManager.STREAM_VOICE_CALL;
-        } else if (mode == AudioManager.MODE_RINGTONE) {
-            return AudioManager.STREAM_RING;
-        } else {
-            // ডিফল্ট হিসেবে মিডিয়া ভলিউম থাকবে
-            return AudioManager.STREAM_MUSIC;
+        int ringCur = audioManager.getStreamVolume(AudioManager.STREAM_RING);
+        int notifCur = audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION);
+
+        // যদি ম্যাক্সিমাম ভলিউম অথবা বর্তমান ভলিউম আলাদা হয়, তার মানে তারা কোনোভাবেই মার্জড নয়।
+        if (ringMax != notifMax || ringCur != notifCur) {
+            return false;
         }
+        
+        // যদি হুবহু মিলে যায়, তবে আমরা ধরে নেব তারা সিস্টেমে মার্জ করা আছে।
+        return true;
     }
 
-    // বর্তমান অ্যাক্টিভ স্ট্রিমের ওপর ভিত্তি করে সঠিক ভেক্টর আইকন রিটার্ন করা
+    // স্ট্রিম ফিল্টার: নোটিফিকেশন যদি মার্জড থাকে, তবে সেটিকে রিংটোনে কনভার্ট করে দেবে
+    public int resolveStream(int streamType) {
+        if (streamType == AudioManager.STREAM_NOTIFICATION) {
+            if (isNotificationAndRingMerged()) {
+                return AudioManager.STREAM_RING; // নোটিফিকেশন ভয়েড করে রিংটোন রিটার্ন করবে
+            }
+        }
+        return streamType;
+    }
+
+    public int getActiveStream() {
+        int mode = audioManager.getMode();
+        int detectedStream;
+        
+        if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
+            detectedStream = AudioManager.STREAM_VOICE_CALL;
+        } else if (mode == AudioManager.MODE_RINGTONE) {
+            detectedStream = AudioManager.STREAM_RING;
+        } else {
+            detectedStream = AudioManager.STREAM_MUSIC;
+        }
+        
+        return resolveStream(detectedStream);
+    }
+
     public int getIconForStream(int streamType) {
         switch (streamType) {
             case AudioManager.STREAM_VOICE_CALL:
@@ -33,6 +60,8 @@ public class AudioController {
                 return R.drawable.ic_volume_ring;
             case AudioManager.STREAM_ALARM:
                 return R.drawable.ic_volume_alarm;
+            case AudioManager.STREAM_NOTIFICATION:
+                return R.drawable.ic_volume_notification;
             case AudioManager.STREAM_MUSIC:
             default:
                 return R.drawable.ic_volume_media;
