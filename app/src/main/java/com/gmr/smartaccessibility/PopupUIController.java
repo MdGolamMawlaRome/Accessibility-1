@@ -20,6 +20,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import java.util.Set;
 
 public class PopupUIController {
     private final AccessibilityService service;
@@ -60,9 +61,12 @@ public class PopupUIController {
         LinearLayout popupRoot = popupView.findViewById(R.id.popupRoot);
         popupRoot.setOnClickListener(v -> {});
 
+        // ম্যাথমেটিক্যাল পজিশনিং লজিক:
+        // স্ক্রিনের রিয়েল হাইট পিক্সেলকে (heightPixels) ১১ দ্বারা ভাগ করে প্রাপ্ত মানকে নিচ থেকে মার্জিন বা গ্যাপ হিসেবে দেওয়া হয়েছে।
         DisplayMetrics metrics = new DisplayMetrics();
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
         int bottomGap = metrics.heightPixels / 11;
+        
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) popupRoot.getLayoutParams();
         layoutParams.gravity = Gravity.BOTTOM;
         layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), bottomGap);
@@ -71,7 +75,7 @@ public class PopupUIController {
         applyThemeStyles(popupRoot);
         setupButtonsAndViews();
         setupBrightnessSlider();
-        updateAllVolumeSliders(); // প্রথমবার ওপেন হতেই সব ভলিউম সিঙ্ক হবে
+        updateAllVolumeSliders(); 
 
         windowManager.addView(popupView, params);
     }
@@ -109,22 +113,21 @@ public class PopupUIController {
         });
     }
 
-    // এই ফাংশনটি ব্রডকাস্ট রিসিভার থেকে কল হবে, যেন রিয়েল-টাইম আপডেট হয়
     public void updateAllVolumeSliders() {
         if (popupView == null) return;
         
-        // মেইন প্যানেল আপডেট
+        // মেইন প্যানেল আপডেট (ক্যালিব্রেশন সিনক্রোনাইজড মেথড দিয়ে)
         int activeStream = audioController.getActiveStream();
-        setupSingleSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream);
+        setupMainVolumeSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream);
         
-        // এক্সপ্যান্ডেড প্যানেল আপডেট
+        // এক্সপ্যান্ডেড প্যানেল একক স্ট্রিমগুলোর আপডেট
         bindRow(R.id.rowMedia, R.drawable.ic_volume_media, AudioManager.STREAM_MUSIC);
         bindRow(R.id.rowRing, R.drawable.ic_volume_ring, AudioManager.STREAM_RING);
         bindRow(R.id.rowSystem, R.drawable.ic_volume_system, AudioManager.STREAM_SYSTEM);
         bindRow(R.id.rowCall, R.drawable.ic_volume_call, AudioManager.STREAM_VOICE_CALL);
         bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM);
 
-        // স্মার্ট লজিক: নোটিফিকেশন মার্জ করা থাকলে লেআউট থেকে গায়েব করে দেওয়া হবে
+        // নোটিফিকেশন মার্জড লজিক
         View rowNotif = popupView.findViewById(R.id.rowNotification);
         if (audioController.isNotificationMergedWithRing()) {
             rowNotif.setVisibility(View.GONE);
@@ -149,6 +152,7 @@ public class PopupUIController {
         setupSingleSlider(slider, text, streamType);
     }
 
+    // এক্সপ্যান্ডেড প্যানেলের জন্য একক স্ট্রিম পরিবর্তনকারী স্লাইডার লজিক
     private void setupSingleSlider(SeekBar slider, TextView textView, int streamType) {
         int max = audioController.getMaxVolume(streamType);
         int cur = audioController.getCurrentVolume(streamType);
@@ -165,6 +169,42 @@ public class PopupUIController {
                     textView.setText(prog + "%");
                     int vol = max > 0 ? Math.round((prog / 100f) * max) : 0;
                     audioController.setVolume(streamType, vol);
+                }
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+    }
+
+    // মেইন প্যানেলের জন্য ক্যালিব্রেশন সমৃদ্ধ স্মার্ট মাল্টি-স্ট্রিম স্লাইডার লজিক
+    private void setupMainVolumeSlider(SeekBar slider, TextView textView, int activeStreamType) {
+        int max = audioController.getMaxVolume(activeStreamType);
+        int cur = audioController.getCurrentVolume(activeStreamType);
+        slider.setMax(100);
+        int progress = max > 0 ? (cur * 100) / max : 0;
+        slider.setProgress(progress);
+        textView.setText(progress + "%");
+
+        slider.setOnSeekBarChangeListener(null);
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int prog, boolean fromUser) {
+                if (fromUser) {
+                    textView.setText(prog + "%");
+                    Set<String> streams = VolumeCalibrator.getDetectedStreams(service);
+                    if (streams.isEmpty()) {
+                        int vol = max > 0 ? Math.round((prog / 100f) * max) : 0;
+                        audioController.setVolume(activeStreamType, vol);
+                    } else {
+                        for (String streamStr : streams) {
+                            try {
+                                int streamType = Integer.parseInt(streamStr);
+                                int sMax = audioController.getMaxVolume(streamType);
+                                int vol = sMax > 0 ? Math.round((prog / 100f) * sMax) : 0;
+                                audioController.setVolume(streamType, vol);
+                            } catch (Exception e) {}
+                        }
+                    }
                 }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -221,20 +261,20 @@ public class PopupUIController {
     private void applyThemeStyles(LinearLayout popupRoot) {
         boolean isDarkTheme = (service.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         int panelBgColor = isDarkTheme ? Color.parseColor("#E6121212") : Color.parseColor("#E6F5F5F7");
-        int primaryTextColor = isDarkTheme ? Color.parseColor("#FFFFFF") : Color.parseColor("#1C1C1E");
+        int primaryTextColor = isDarkTheme ? Color.WHITE : Color.parseColor("#1C1C1E");
         int iconTint = isDarkTheme ? Color.WHITE : Color.parseColor("#1C1C1E");
 
         GradientDrawable backgroundShape = (GradientDrawable) popupRoot.getBackground();
         if (backgroundShape != null) backgroundShape.setColor(panelBgColor);
 
         int[] iconIds = {R.id.imgBrightness, R.id.imgMainVolume, R.id.btnExpand, R.id.btnVolumeBack, R.id.imgScreenshot, R.id.imgPower, R.id.imgLock};
-        for (int id : iconIds) {
+        for (id : iconIds) {
             ImageView img = popupView.findViewById(id);
             if (img != null) img.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
         }
 
         int[] textIds = {R.id.brightnessPercentText, R.id.mainVolumePercentText};
-        for (int id : textIds) {
+        for (id : textIds) {
             TextView txt = popupView.findViewById(id);
             if (txt != null) txt.setTextColor(primaryTextColor);
         }
