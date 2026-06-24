@@ -61,8 +61,6 @@ public class PopupUIController {
         LinearLayout popupRoot = popupView.findViewById(R.id.popupRoot);
         popupRoot.setOnClickListener(v -> {});
 
-        // ম্যাথমেটিক্যাল পজিশনিং লজিক:
-        // স্ক্রিনের রিয়েল হাইট পিক্সেলকে (heightPixels) ১১ দ্বারা ভাগ করে প্রাপ্ত মানকে নিচ থেকে মার্জিন বা গ্যাপ হিসেবে দেওয়া হয়েছে।
         DisplayMetrics metrics = new DisplayMetrics();
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
         int bottomGap = metrics.heightPixels / 11;
@@ -116,18 +114,15 @@ public class PopupUIController {
     public void updateAllVolumeSliders() {
         if (popupView == null) return;
         
-        // মেইন প্যানেল আপডেট (ক্যালিব্রেশন সিনক্রোনাইজড মেথড দিয়ে)
         int activeStream = audioController.getActiveStream();
         setupMainVolumeSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream);
         
-        // এক্সপ্যান্ডেড প্যানেল একক স্ট্রিমগুলোর আপডেট
         bindRow(R.id.rowMedia, R.drawable.ic_volume_media, AudioManager.STREAM_MUSIC);
         bindRow(R.id.rowRing, R.drawable.ic_volume_ring, AudioManager.STREAM_RING);
         bindRow(R.id.rowSystem, R.drawable.ic_volume_system, AudioManager.STREAM_SYSTEM);
         bindRow(R.id.rowCall, R.drawable.ic_volume_call, AudioManager.STREAM_VOICE_CALL);
         bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM);
 
-        // নোটিফিকেশন মার্জড লজিক
         View rowNotif = popupView.findViewById(R.id.rowNotification);
         if (audioController.isNotificationMergedWithRing()) {
             rowNotif.setVisibility(View.GONE);
@@ -152,7 +147,6 @@ public class PopupUIController {
         setupSingleSlider(slider, text, streamType);
     }
 
-    // এক্সপ্যান্ডেড প্যানেলের জন্য একক স্ট্রিম পরিবর্তনকারী স্লাইডার লজিক
     private void setupSingleSlider(SeekBar slider, TextView textView, int streamType) {
         int max = audioController.getMaxVolume(streamType);
         int cur = audioController.getCurrentVolume(streamType);
@@ -176,7 +170,6 @@ public class PopupUIController {
         });
     }
 
-    // মেইন প্যানেলের জন্য ক্যালিব্রেশন সমৃদ্ধ স্মার্ট মাল্টি-স্ট্রিম স্লাইডার লজিক
     private void setupMainVolumeSlider(SeekBar slider, TextView textView, int activeStreamType) {
         int max = audioController.getMaxVolume(activeStreamType);
         int cur = audioController.getCurrentVolume(activeStreamType);
@@ -268,13 +261,13 @@ public class PopupUIController {
         if (backgroundShape != null) backgroundShape.setColor(panelBgColor);
 
         int[] iconIds = {R.id.imgBrightness, R.id.imgMainVolume, R.id.btnExpand, R.id.btnVolumeBack, R.id.imgScreenshot, R.id.imgPower, R.id.imgLock};
-        for (id : iconIds) {
+        for (int id : iconIds) {
             ImageView img = popupView.findViewById(id);
             if (img != null) img.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
         }
 
         int[] textIds = {R.id.brightnessPercentText, R.id.mainVolumePercentText};
-        for (id : textIds) {
+        for (int id : textIds) {
             TextView txt = popupView.findViewById(id);
             if (txt != null) txt.setTextColor(primaryTextColor);
         }
