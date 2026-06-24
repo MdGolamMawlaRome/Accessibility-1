@@ -94,9 +94,15 @@ public class PopupUIController {
         }
     }
 
-    // এই মেথডটি সিস্টেম স্টেট ট্র্যাক করে সঠিক আইকন ও ভলিউম লেভেল বসায়
     public void updateVolumeUI() {
+        updateVolumeUI(audioController.getActiveStream());
+    }
+
+    public void updateVolumeUI(int streamType) {
         if (popupView == null) return;
+
+        // 🌟 স্মার্ট চেক: নোটিফিকেশন ভলিউম মার্জড থাকলে এটি অটোমেটিক রিংটোনে কনভার্ট হয়ে যাবে
+        final int resolvedStream = audioController.resolveStream(streamType);
 
         SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
         TextView volumeText = popupView.findViewById(R.id.volumePercentText);
@@ -104,11 +110,15 @@ public class PopupUIController {
 
         if (volumeSlider == null || volumeText == null || imgVolume == null) return;
 
-        int activeStream = audioController.getActiveStream();
-        imgVolume.setImageResource(audioController.getIconForStream(activeStream));
+        imgVolume.setImageResource(audioController.getIconForStream(resolvedStream));
 
-        int maxVol = audioController.getMaxVolume(activeStream);
-        int curVol = audioController.getCurrentVolume(activeStream);
+        int nightModeFlags = service.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        boolean isDarkTheme = nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+        int iconTint = isDarkTheme ? Color.WHITE : Color.parseColor("#1C1C1E");
+        imgVolume.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
+
+        int maxVol = audioController.getMaxVolume(resolvedStream);
+        int curVol = audioController.getCurrentVolume(resolvedStream);
         
         volumeSlider.setMax(100);
         int volProgress = maxVol > 0 ? (curVol * 100) / maxVol : 0;
@@ -122,7 +132,7 @@ public class PopupUIController {
                 volumeText.setText(progress + "%");
                 if (fromUser) {
                     int systemVol = maxVol > 0 ? Math.round((float) progress * maxVol / 100f) : 0;
-                    audioController.setVolume(activeStream, systemVol);
+                    audioController.setVolume(resolvedStream, systemVol);
                 }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -247,5 +257,4 @@ public class PopupUIController {
     private int dpToPx(int dp) {
         return (int) (dp * service.getResources().getDisplayMetrics().density);
     }
-          }
-  
+}
