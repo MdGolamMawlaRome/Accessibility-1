@@ -123,8 +123,9 @@ public class PopupUIController {
         bindRow(R.id.rowCall, R.drawable.ic_volume_call, AudioManager.STREAM_VOICE_CALL);
         bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM);
 
+        // লাইভ ডেটার বদলে স্ট্যাটিক সেভড ডেটা থেকে চেক করা হচ্ছে
         View rowNotif = popupView.findViewById(R.id.rowNotification);
-        if (audioController.isNotificationMergedWithRing()) {
+        if (VolumeCalibrator.isNotificationMerged(service)) {
             rowNotif.setVisibility(View.GONE);
         } else {
             rowNotif.setVisibility(View.VISIBLE);
