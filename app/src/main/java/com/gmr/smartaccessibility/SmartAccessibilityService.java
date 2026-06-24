@@ -1,7 +1,7 @@
 package com.gmr.smartaccessibility;
 
-import android.accessibilityservice.AccessibilityButtonController;
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityButtonController;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -24,11 +24,11 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.LinearLayout;
+import android.widget.ImageView;
+import android.widget.FrameLayout;
 
 public class SmartAccessibilityService extends AccessibilityService {
 
@@ -54,16 +54,14 @@ public class SmartAccessibilityService extends AccessibilityService {
             }
 
             AccessibilityButtonController buttonController = getAccessibilityButtonController();
-            if (buttonController != null) {
-                buttonController.registerAccessibilityButtonCallback(
-                    new AccessibilityButtonController.AccessibilityButtonCallback() {
-                        @Override
-                        public void onClicked(AccessibilityButtonController controller) {
-                            toggleMenu();
-                        }
+            buttonController.registerAccessibilityButtonCallback(
+                new AccessibilityButtonController.AccessibilityButtonCallback() {
+                    @Override
+                    public void onClicked(AccessibilityButtonController controller) {
+                        toggleMenu();
                     }
-                );
-            }
+                }
+            );
         }
     }
 
@@ -98,7 +96,7 @@ public class SmartAccessibilityService extends AccessibilityService {
         setupSliders();
         setupButtons();
 
-        // Dynamic height placement from the screen baseline
+        // 1/11 Dynamic height placement from the screen baseline
         DisplayMetrics metrics = new DisplayMetrics();
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
         int screenHeight = metrics.heightPixels;
@@ -175,26 +173,7 @@ public class SmartAccessibilityService extends AccessibilityService {
         return (int) (dp * getResources().getDisplayMetrics().density);
     }
 
-    // ==================== নতুন Dynamic Volume Logic ====================
-    private int getActiveVolumeStream() {
-        int mode = audioManager.getMode();
-        if (mode == AudioManager.MODE_IN_CALL ||
-            mode == AudioManager.MODE_IN_COMMUNICATION ||
-            mode == AudioManager.MODE_CALL_SCREENING) {
-            return AudioManager.STREAM_VOICE_CALL;
-        }
-
-        // মিউজিক বা ভিডিও চললে
-        if (audioManager.isMusicActive() || audioManager.isMusicActiveByPlayer()) {
-            return AudioManager.STREAM_MUSIC;
-        }
-
-        // ডিফল্ট মিডিয়া স্ট্রিম
-        return AudioManager.STREAM_MUSIC;
-    }
-
     private void setupSliders() {
-        // Brightness Slider
         SeekBar brightnessSlider = popupView.findViewById(R.id.brightnessSlider);
         TextView brightnessText = popupView.findViewById(R.id.brightnessPercentText);
         
@@ -217,13 +196,11 @@ public class SmartAccessibilityService extends AccessibilityService {
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-        // Dynamic Volume Slider (প্রত্যেক স্ট্রিমের নিজস্ব ভ্যালু)
         SeekBar volumeSlider = popupView.findViewById(R.id.volumeSlider);
         TextView volumeText = popupView.findViewById(R.id.volumePercentText);
         
-        int stream = getActiveVolumeStream();
-        int maxVol = audioManager.getStreamMaxVolume(stream);
-        int curVol = audioManager.getStreamVolume(stream);
+        int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        int curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
         
         volumeSlider.setMax(100);
         int volProgress = maxVol > 0 ? (curVol * 100) / maxVol : 0;
@@ -235,11 +212,8 @@ public class SmartAccessibilityService extends AccessibilityService {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 volumeText.setText(progress + "%");
                 if (fromUser) {
-                    int currentStream = getActiveVolumeStream();
-                    int maxVolCurrent = audioManager.getStreamMaxVolume(currentStream);
-                    int systemVol = maxVolCurrent > 0 ? 
-                        Math.round((float) progress * maxVolCurrent / 100f) : 0;
-                    audioManager.setStreamVolume(currentStream, systemVol, 0);
+                    int systemVol = maxVol > 0 ? Math.round((float) progress * maxVol / 100f) : 0;
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, systemVol, 0);
                 }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -249,12 +223,9 @@ public class SmartAccessibilityService extends AccessibilityService {
 
     private void updateVolumeSlider(SeekBar volumeSlider, TextView volumeText) {
         if (volumeSlider == null || volumeText == null) return;
-        
-        int stream = getActiveVolumeStream();
-        int maxVol = audioManager.getStreamMaxVolume(stream);
-        int curVol = audioManager.getStreamVolume(stream);
+        int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        int curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
         int volProgress = maxVol > 0 ? (curVol * 100) / maxVol : 0;
-        
         volumeSlider.setProgress(volProgress);
         volumeText.setText(volProgress + "%");
     }
@@ -324,18 +295,15 @@ public class SmartAccessibilityService extends AccessibilityService {
                         TextView volumeText = popupView.findViewById(R.id.volumePercentText);
                         updateVolumeSlider(volumeSlider, volumeText);
                     }
-                } else if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action) || 
-                           Intent.ACTION_SCREEN_OFF.equals(action)) {
+                } else if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action) || Intent.ACTION_SCREEN_OFF.equals(action)) {
                     hideMenu();
                 }
             }
         };
-
         IntentFilter filter = new IntentFilter();
         filter.addAction("android.media.VOLUME_CHANGED_ACTION");
         filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
-        filter.addAction("android.intent.action.PHONE_STATE");   // কল স্টেটের জন্য
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(systemReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
