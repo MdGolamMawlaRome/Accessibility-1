@@ -67,7 +67,7 @@
                 android:id="@+id/imgVolume"
                 android:layout_width="28dp"
                 android:layout_height="28dp"
-                android:src="@drawable/ic_volume"
+                android:src="@drawable/ic_volume_media"
                 android:layout_marginEnd="8dp"/>
 
             <FrameLayout
