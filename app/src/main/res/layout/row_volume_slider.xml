@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:layout_marginBottom="12dp">
+
+    <ImageView
+        android:id="@+id/rowIcon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginEnd="8dp"/>
+
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="32dp"
+        android:layout_weight="1">
+        <SeekBar
+            android:id="@+id/rowSlider"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:max="100"
+            android:progressDrawable="@drawable/custom_slider_bar"
+            android:thumb="@null"
+            android:splitTrack="false" />
+        <TextView
+            android:id="@+id/rowPercentText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:text="50%"/>
+    </FrameLayout>
+</LinearLayout>
