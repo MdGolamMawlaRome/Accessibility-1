@@ -1,118 +1,58 @@
 package com.gmr.smartaccessibility;
 
 import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityButtonController;
-import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.Configuration;
-import android.database.ContentObserver;
 import android.media.AudioManager;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
-import android.provider.Settings;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.WindowManager;
 
 public class SmartAccessibilityService extends AccessibilityService {
-
     private PopupUIController popupUIController;
-    private AudioController audioController;
-    private ContentObserver brightnessObserver;
-    private BroadcastReceiver systemReceiver;
+    private BroadcastReceiver volumeReceiver;
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        popupUIController = new PopupUIController(this);
         
-        audioController = new AudioController(this);
-        popupUIController = new PopupUIController(this, audioController);
-        
-        registerSystemObservers();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            AccessibilityServiceInfo info = getServiceInfo();
-            if (info != null) {
-                info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON;
-                setServiceInfo(info);
-            }
-
-            AccessibilityButtonController buttonController = getAccessibilityButtonController();
-            buttonController.registerAccessibilityButtonCallback(
-                new AccessibilityButtonController.AccessibilityButtonCallback() {
-                    @Override
-                    public void onClicked(AccessibilityButtonController controller) {
-                        popupUIController.toggleMenu();
-                    }
-                }
-            );
-        }
-    }
-
-    private void registerSystemObservers() {
-        brightnessObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
-            @Override
-            public void onChange(boolean selfChange) {
-                if (popupUIController.isShowing()) {
-                    popupUIController.updateBrightnessUI();
-                }
-            }
-        };
-        getContentResolver().registerContentObserver(
-                Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS),
-                false, brightnessObserver);
-
-        systemReceiver = new BroadcastReceiver() {
+        // ভলিউম পরিবর্তনের জন্য রিসিভার
+        volumeReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                String action = intent.getAction();
-                if ("android.media.VOLUME_CHANGED_ACTION".equals(action)) {
-                    if (popupUIController.isShowing()) {
-                        int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
-                        if (streamType != -1) {
-                            popupUIController.updateVolumeUI(streamType);
-                        } else {
-                            popupUIController.updateVolumeUI();
-                        }
+                if ("android.media.VOLUME_CHANGED_ACTION".equals(intent.getAction())) {
+                    if (popupUIController != null) {
+                        popupUIController.updateAllSliders();
                     }
-                } else if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action) || Intent.ACTION_SCREEN_OFF.equals(action)) {
-                    popupUIController.hideMenu();
                 }
             }
         };
-        IntentFilter filter = new IntentFilter();
-        filter.addAction("android.media.VOLUME_CHANGED_ACTION");
-        filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-        filter.addAction(Intent.ACTION_SCREEN_OFF);
-
+        
+        IntentFilter filter = new IntentFilter("android.media.VOLUME_CHANGED_ACTION");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(systemReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            registerReceiver(volumeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
-            registerReceiver(systemReceiver, filter);
+            registerReceiver(volumeReceiver, filter);
         }
+    }
+
+    public void showPopup() {
+        if (popupUIController != null) popupUIController.show();
     }
 
     @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        if (popupUIController.isShowing()) {
-            popupUIController.hideMenu();
-            popupUIController.showMenu();
-        }
-    }
+    public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {}
+    @Override
+    public void onInterrupt() {}
 
-    @Override public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {}
-    
-    @Override public void onInterrupt() {}
-    
     @Override
     public void onDestroy() {
+        if (volumeReceiver != null) unregisterReceiver(volumeReceiver);
+        if (popupUIController != null) popupUIController.hide();
         super.onDestroy();
-        if (popupUIController != null) {
-            popupUIController.hideMenu();
-        }
-        if (brightnessObserver != null) getContentResolver().unregisterContentObserver(brightnessObserver);
-        if (systemReceiver != null) unregisterReceiver(systemReceiver);
     }
 }
