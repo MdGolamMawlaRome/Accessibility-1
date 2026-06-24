@@ -20,7 +20,7 @@ public class VolumeCalibrator {
     public void runCalibration() {
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         
-        // যদি ইতিমধ্যে ক্যালিব্রেশন করা থাকে, তবে নতুন করে করার প্রয়োজন নেই
+        // যদি ইতিমধ্যে একবার ক্যালিব্রেশন করা থাকে, তবে আর রান করবে না
         if (prefs.contains(KEY_DETECTED_STREAMS)) return;
 
         Set<String> activeStreams = new HashSet<>();
@@ -34,24 +34,39 @@ public class VolumeCalibrator {
 
         for (int stream : streamTypes) {
             try {
-                // চেক করা হচ্ছে এই স্ট্রিমটি এই ফোনে কাজ করে কি না
-                int currentVol = audioManager.getStreamVolume(stream);
+                int originalVol = audioManager.getStreamVolume(stream);
                 int maxVol = audioManager.getStreamMaxVolume(stream);
                 
-                // ভলিউম চেক করে যদি রেসপন্স পাওয়া যায়, তবে এটি একটি ভ্যালিড স্ট্রিম
                 if (maxVol > 0) {
-                    activeStreams.add(String.valueOf(stream));
+                    // ইউজারকে না জানিয়ে ব্যাকগ্রাউন্ডে হালকা বাড়িয়ে বা কমিয়ে টেস্ট করা হচ্ছে
+                    int testVol = originalVol;
+                    if (originalVol < maxVol) {
+                        testVol = originalVol + 1;
+                    } else if (originalVol > 0) {
+                        testVol = originalVol - 1;
+                    }
+                    
+                    // ভলিউম পরিবর্তন করা হলো (সাইলেন্টলি, কোনো ফ্ল্যাগ ছাড়া)
+                    audioManager.setStreamVolume(stream, testVol, 0);
+                    int checkVol = audioManager.getStreamVolume(stream);
+                    
+                    // যদি ভলিউম সফলভাবে পরিবর্তন হয়, তবে এটি একটি কার্যকর স্ট্রিম হিসেবে যুক্ত হবে
+                    if (checkVol == testVol) {
+                        activeStreams.add(String.valueOf(stream));
+                    }
+                    
+                    // টেস্ট শেষে ভলিউম আবার আগের অবস্থায় ফিরিয়ে দেওয়া হলো
+                    audioManager.setStreamVolume(stream, originalVol, 0);
                 }
             } catch (Exception e) {
-                // কিছু ডিভাইসে নির্দিষ্ট স্ট্রিম সাপোর্ট না করলে এখানে আসবে
+                // কোনো ডিভাইসে নির্দিষ্ট স্ট্রিম লক করা থাকলে এরর এড়াতে ট্রাই-ক্যাচ ব্যবহার করা হয়েছে
             }
         }
 
-        // ক্যালিব্রেশনের রেজাল্ট অ্যাপের নিজস্ব ইন্টারনাল স্টোরেজে সেভ করা হলো
+        // কার্যকর ভলিউম স্ট্রিমগুলোর লিস্ট হাইডেন স্পেস বা নিজস্ব ডাইরেক্টরিতে সেভ করা হলো
         prefs.edit().putStringSet(KEY_DETECTED_STREAMS, activeStreams).apply();
     }
 
-    // অন্য যেকোনো জায়গা থেকে এই লিস্টটি নিতে চাইলে এটি ব্যবহার করুন
     public static Set<String> getDetectedStreams(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         return prefs.getStringSet(KEY_DETECTED_STREAMS, new HashSet<>());
