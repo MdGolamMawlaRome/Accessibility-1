@@ -114,38 +114,43 @@ public class PopupUIController {
         if (popupView == null) return;
         
         int activeStream = audioController.getActiveStream();
-        
-        // ১. মেইন আইকন ডাইনামিকভাবে পরিবর্তন করার লজিক
         ImageView mainIcon = popupView.findViewById(R.id.imgMainVolume);
+        
+        // ডাইনামিক নাম এবং আইকন নির্ধারণ
+        String mainLabel = "Media";
+        int iconResId = R.drawable.ic_volume_media;
+        
+        if (activeStream == AudioManager.STREAM_VOICE_CALL) {
+            mainLabel = "Call";
+            iconResId = R.drawable.ic_volume_call;
+        } else if (activeStream == AudioManager.STREAM_RING) {
+            mainLabel = "Ring";
+            iconResId = R.drawable.ic_volume_ring;
+        }
+        
         if (mainIcon != null) {
-            int iconResId = R.drawable.ic_volume_media; // ডিফল্ট
-            if (activeStream == AudioManager.STREAM_VOICE_CALL) {
-                iconResId = R.drawable.ic_volume_call;
-            } else if (activeStream == AudioManager.STREAM_RING) {
-                iconResId = R.drawable.ic_volume_ring;
-            }
             mainIcon.setImageResource(iconResId);
         }
 
-        setupMainVolumeSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream);
+        setupMainVolumeSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream, mainLabel);
         
-        bindRow(R.id.rowMedia, R.drawable.ic_volume_media, AudioManager.STREAM_MUSIC);
-        bindRow(R.id.rowRing, R.drawable.ic_volume_ring, AudioManager.STREAM_RING);
-        bindRow(R.id.rowSystem, R.drawable.ic_volume_system, AudioManager.STREAM_SYSTEM);
-        bindRow(R.id.rowCall, R.drawable.ic_volume_call, AudioManager.STREAM_VOICE_CALL);
-        bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM);
+        // স্ট্যাটিক নামগুলো পাস করা হচ্ছে
+        bindRow(R.id.rowMedia, R.drawable.ic_volume_media, AudioManager.STREAM_MUSIC, "Media");
+        bindRow(R.id.rowRing, R.drawable.ic_volume_ring, AudioManager.STREAM_RING, "Ring");
+        bindRow(R.id.rowSystem, R.drawable.ic_volume_system, AudioManager.STREAM_SYSTEM, "System");
+        bindRow(R.id.rowCall, R.drawable.ic_volume_call, AudioManager.STREAM_VOICE_CALL, "Call");
+        bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM, "Alarm");
 
-        // ২. রিং এবং নোটিফিকেশন মার্চড থাকলে নোটিফিকেশন রো হাইড করে দেওয়া
         View rowNotif = popupView.findViewById(R.id.rowNotification);
         if (audioController.isNotificationMergedWithRing()) {
             rowNotif.setVisibility(View.GONE);
         } else {
             rowNotif.setVisibility(View.VISIBLE);
-            bindRow(R.id.rowNotification, R.drawable.ic_volume_notification, AudioManager.STREAM_NOTIFICATION);
+            bindRow(R.id.rowNotification, R.drawable.ic_volume_notification, AudioManager.STREAM_NOTIFICATION, "Notif");
         }
     }
 
-    private void bindRow(int rowId, int iconResId, int streamType) {
+    private void bindRow(int rowId, int iconResId, int streamType, String labelText) {
         View row = popupView.findViewById(rowId);
         if (row == null) return;
         
@@ -157,23 +162,24 @@ public class PopupUIController {
         int iconTint = (service.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES ? Color.WHITE : Color.parseColor("#1C1C1E");
         icon.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
 
-        setupSingleSlider(slider, text, streamType);
+        setupSingleSlider(slider, text, streamType, labelText);
     }
 
-    private void setupSingleSlider(SeekBar slider, TextView textView, int streamType) {
+    private void setupSingleSlider(SeekBar slider, TextView textView, int streamType, String labelText) {
         int max = audioController.getMaxVolume(streamType);
         int cur = audioController.getCurrentVolume(streamType);
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
-        slider.setProgress(progress);
-        textView.setText(progress + "%");
+        
+        // নাম এবং পার্সেন্টেজ একসাথে সেট করা হচ্ছে
+        textView.setText(labelText + " " + progress + "%");
 
         slider.setOnSeekBarChangeListener(null);
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int prog, boolean fromUser) {
                 if (fromUser) {
-                    textView.setText(prog + "%");
+                    textView.setText(labelText + " " + prog + "%");
                     int vol = max > 0 ? Math.round((prog / 100f) * max) : 0;
                     audioController.setVolume(streamType, vol);
                 }
@@ -183,21 +189,20 @@ public class PopupUIController {
         });
     }
 
-    private void setupMainVolumeSlider(SeekBar slider, TextView textView, int activeStreamType) {
+    private void setupMainVolumeSlider(SeekBar slider, TextView textView, int activeStreamType, String labelText) {
         int max = audioController.getMaxVolume(activeStreamType);
         int cur = audioController.getCurrentVolume(activeStreamType);
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
-        slider.setProgress(progress);
-        textView.setText(progress + "%");
+        
+        textView.setText(labelText + " " + progress + "%");
 
         slider.setOnSeekBarChangeListener(null);
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int prog, boolean fromUser) {
                 if (fromUser) {
-                    textView.setText(prog + "%");
-                    // বাগ ফিক্স: ফালতু লুপ রিমুভ করে শুধুমাত্র অ্যাক্টিভ স্ট্রিম আপডেট করা হচ্ছে
+                    textView.setText(labelText + " " + prog + "%");
                     int vol = max > 0 ? Math.round((prog / 100f) * max) : 0;
                     audioController.setVolume(activeStreamType, vol);
                 }
@@ -214,8 +219,8 @@ public class PopupUIController {
         if (brightnessSlider != null && brightnessText != null) {
             int curBrightness = getCurrentSystemBrightness();
             int progress = (curBrightness * 100) / 255;
+            brightnessText.setText("Bright " + progress + "%");
             brightnessSlider.setProgress(progress);
-            brightnessText.setText(progress + "%");
         }
     }
 
@@ -226,13 +231,15 @@ public class PopupUIController {
         int brightnessProgress = (currentBrightness * 100) / 255;
         brightnessSlider.setMax(100);
         brightnessSlider.setProgress(brightnessProgress);
-        brightnessText.setText(brightnessProgress + "%");
+        
+        // ব্রাইটনেসের ক্ষেত্রেও নাম জুড়ে দেওয়া হলো
+        brightnessText.setText("Bright " + brightnessProgress + "%");
 
         brightnessSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
-                    brightnessText.setText(progress + "%");
+                    brightnessText.setText("Bright " + progress + "%");
                     int systemVal = (progress * 255) / 100;
                     if (Settings.System.canWrite(service)) {
                         Settings.System.putInt(service.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, systemVal);
