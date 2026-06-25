@@ -49,10 +49,12 @@ public class UpdateManager {
     public void checkForUpdates() {
         long lastCheckTime = prefs.getLong(KEY_LAST_CHECK, 0);
         long currentTime = System.currentTimeMillis();
-        long twentyFourHours = 24 * 60 * 60 * 1000;
 
-        // ২৪ ঘণ্টার আগে পুনরায় চেক করবে না
-        if (currentTime - lastCheckTime < twentyFourHours) {
+        // এই ভ্যারিয়েবলটি দিয়ে আপডেট চেক করার সময়ের ব্যবধান (মিলিসেকেন্ডে) নির্ধারণ করা হয়েছে
+        long updateCheckingInterval = 6 * 60 * 60 * 1000;
+
+        // নির্ধারিত সময়ের আগে অ্যাপ্লিকেশন পুনরায় নতুন আপডেট চেক করবে না
+        if (currentTime - lastCheckTime < updateCheckingInterval) {
             return;
         }
 
