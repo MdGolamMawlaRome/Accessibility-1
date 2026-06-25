@@ -134,7 +134,7 @@ public class PopupUIController {
 
         setupMainVolumeSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream, mainLabel);
         
-        // স্ট্যাটিক নামগুলো পাস করা হচ্ছে
+        // সম্পূর্ণ নামগুলো পাস করা হচ্ছে
         bindRow(R.id.rowMedia, R.drawable.ic_volume_media, AudioManager.STREAM_MUSIC, "Media");
         bindRow(R.id.rowRing, R.drawable.ic_volume_ring, AudioManager.STREAM_RING, "Ring");
         bindRow(R.id.rowSystem, R.drawable.ic_volume_system, AudioManager.STREAM_SYSTEM, "System");
@@ -146,7 +146,7 @@ public class PopupUIController {
             rowNotif.setVisibility(View.GONE);
         } else {
             rowNotif.setVisibility(View.VISIBLE);
-            bindRow(R.id.rowNotification, R.drawable.ic_volume_notification, AudioManager.STREAM_NOTIFICATION, "Notif");
+            bindRow(R.id.rowNotification, R.drawable.ic_volume_notification, AudioManager.STREAM_NOTIFICATION, "Notification");
         }
     }
 
@@ -171,7 +171,6 @@ public class PopupUIController {
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
         
-        // নাম এবং পার্সেন্টেজ একসাথে সেট করা হচ্ছে
         textView.setText(labelText + " " + progress + "%");
 
         slider.setOnSeekBarChangeListener(null);
@@ -219,7 +218,7 @@ public class PopupUIController {
         if (brightnessSlider != null && brightnessText != null) {
             int curBrightness = getCurrentSystemBrightness();
             int progress = (curBrightness * 100) / 255;
-            brightnessText.setText("Bright " + progress + "%");
+            brightnessText.setText("Brightness " + progress + "%");
             brightnessSlider.setProgress(progress);
         }
     }
@@ -232,14 +231,14 @@ public class PopupUIController {
         brightnessSlider.setMax(100);
         brightnessSlider.setProgress(brightnessProgress);
         
-        // ব্রাইটনেসের ক্ষেত্রেও নাম জুড়ে দেওয়া হলো
-        brightnessText.setText("Bright " + brightnessProgress + "%");
+        // সম্পূর্ণ "Brightness" নাম জুড়ে দেওয়া হলো
+        brightnessText.setText("Brightness " + brightnessProgress + "%");
 
         brightnessSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
-                    brightnessText.setText("Bright " + progress + "%");
+                    brightnessText.setText("Brightness " + progress + "%");
                     int systemVal = (progress * 255) / 100;
                     if (Settings.System.canWrite(service)) {
                         Settings.System.putInt(service.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, systemVal);
