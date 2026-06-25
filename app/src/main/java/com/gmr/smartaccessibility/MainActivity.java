@@ -17,6 +17,7 @@ import java.io.InputStreamReader;
 public class MainActivity extends AppCompatActivity {
 
     private TextView dynamicHomepageText;
+    private UpdateManager updateManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,6 +27,10 @@ public class MainActivity extends AppCompatActivity {
         dynamicHomepageText = findViewById(R.id.dynamicHomepageText);
         
         loadTextFromAssets();
+
+        // Auto Update চেক করার লজিক
+        updateManager = new UpdateManager(this);
+        updateManager.checkForUpdates();
     }
 
     @Override
