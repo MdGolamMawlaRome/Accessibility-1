@@ -17,9 +17,14 @@ public class AppInfoActivity extends AppCompatActivity {
         
         TextView textView = new TextView(this);
         textView.setPadding(50, 50, 50, 50);
-        // সঠিক পদ্ধতি: স্পেসিফাই করা যে এটি SP ইউনিট
         textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18); 
+
+        // ফিক্সড কালারের বদলে সিস্টেমের থিম কালার ব্যবহার করছি
         TypedArray typedArray = obtainStyledAttributes(new int[]{android.R.attr.textColorPrimary});
+        int textColor = typedArray.getColor(0, 0xFF000000); // ডিফল্ট কালো ধরে নিচ্ছি যদি থিম না পাওয়া যায়
+        typedArray.recycle();
+        
+        textView.setTextColor(textColor);
         setContentView(textView);
 
         try {
