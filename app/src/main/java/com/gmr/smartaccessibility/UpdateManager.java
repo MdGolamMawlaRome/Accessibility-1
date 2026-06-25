@@ -1,14 +1,19 @@
 package com.gmr.smartaccessibility;
 
 import android.app.AlertDialog;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.FileProvider;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -25,33 +30,53 @@ import java.util.concurrent.Executors;
 public class UpdateManager {
 
     private static final String LATEST_RELEASE_API = "https://api.github.com/repos/MdGolamMawlaRome/Smart-Accessibility/releases/latest";
+    private static final String PREFS_NAME = "UpdatePrefs";
+    private static final String KEY_LAST_CHECK = "last_check_time";
+    private static final String KEY_PENDING_URL = "pending_update_url";
+    
     private final Context context;
     private final ExecutorService executorService;
     private final Handler mainHandler;
+    private final SharedPreferences prefs;
 
     public UpdateManager(Context context) {
         this.context = context;
         this.executorService = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
+        this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
     public void checkForUpdates() {
+        long lastCheckTime = prefs.getLong(KEY_LAST_CHECK, 0);
+        long currentTime = System.currentTimeMillis();
+        long twentyFourHours = 24 * 60 * 60 * 1000;
+
+        // ২৪ ঘণ্টার আগে পুনরায় চেক করবে না
+        if (currentTime - lastCheckTime < twentyFourHours) {
+            return;
+        }
+
         executorService.execute(() -> {
+            HttpURLConnection connection = null;
+            BufferedReader reader = null;
             try {
                 URL url = new URL(LATEST_RELEASE_API);
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(10000);
+                connection.setRequestProperty("User-Agent", "Smart-Accessibility-App");
 
                 if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                     StringBuilder response = new StringBuilder();
                     String line;
                     while ((line = reader.readLine()) != null) {
                         response.append(line);
                     }
-                    reader.close();
+
+                    // সার্ভার থেকে সফলভাবে ডেটা পেলে সময় সেভ করবে
+                    prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply();
 
                     JSONObject jsonObject = new JSONObject(response.toString());
                     String latestVersion = jsonObject.getString("tag_name").replace("v", "").trim();
@@ -63,13 +88,19 @@ public class UpdateManager {
                         JSONArray assets = jsonObject.getJSONArray("assets");
                         if (assets.length() > 0) {
                             String downloadUrl = assets.getJSONObject(0).getString("browser_download_url");
-                            mainHandler.post(() -> showUpdateDialog(downloadUrl, latestVersion));
+                            mainHandler.post(() -> showUpdateNotification(downloadUrl));
                         }
                     }
                 }
-                connection.disconnect();
             } catch (Exception e) {
                 e.printStackTrace();
+            } finally {
+                if (reader != null) {
+                    try { reader.close(); } catch (Exception ignored) {}
+                }
+                if (connection != null) {
+                    connection.disconnect();
+                }
             }
         });
     }
@@ -91,49 +122,102 @@ public class UpdateManager {
         return false;
     }
 
-    private void showUpdateDialog(String downloadUrl, String newVersion) {
-        new AlertDialog.Builder(context)
-                .setTitle("Update Available")
-                .setMessage("A new version (v" + newVersion + ") is available. Would you like to update now?")
-                .setPositiveButton("Update", (dialog, which) -> checkInstallPermissionAndDownload(downloadUrl))
-                .setNegativeButton("Later", null)
-                .show();
+    private void showUpdateNotification(String downloadUrl) {
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        String channelId = "update_channel";
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    channelId,
+                    "App Updates",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        Intent intent = new Intent(context, MainActivity.class);
+        intent.putExtra("UPDATE_URL", downloadUrl);
+        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            pendingFlags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, pendingFlags);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("Update Available")
+                .setContentText("A new update is available. Tap to install for better features.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        notificationManager.notify(1001, builder.build());
     }
 
-    private void checkInstallPermissionAndDownload(String downloadUrl) {
+    // নোটিফিকেশন থেকে ক্লিক হয়ে আসলে এই মেথড কল হবে
+    public void processUpdate(String downloadUrl) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!context.getPackageManager().canRequestPackageInstalls()) {
+                // পারমিশন নেই, তাই URL সেভ করে রাখছি যেন ইউজার ফিরে এলে কাজ শুরু করা যায়
+                prefs.edit().putString(KEY_PENDING_URL, downloadUrl).apply();
+                
                 new AlertDialog.Builder(context)
                         .setTitle("Permission Required")
-                        .setMessage("To install updates, you must allow this app to install unknown apps.")
-                        .setPositiveButton("Settings", (dialog, which) -> {
+                        .setMessage("To install the update, please allow 'Install Unknown Apps' permission in settings.")
+                        .setPositiveButton("Go to Settings", (dialog, which) -> {
                             Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
                             intent.setData(Uri.parse("package:" + context.getPackageName()));
                             context.startActivity(intent);
                         })
-                        .setNegativeButton("Cancel", null)
+                        .setNegativeButton("Cancel", (dialog, which) -> {
+                            prefs.edit().remove(KEY_PENDING_URL).apply();
+                        })
                         .show();
                 return;
             }
         }
-        downloadAndInstallApk(downloadUrl);
+        // পারমিশন থাকলে সরাসরি ডাউনলোড
+        startDownload(downloadUrl);
     }
 
-    private void downloadAndInstallApk(String downloadUrl) {
+    // ইউজার সেটিংস থেকে ফিরে আসার পর MainActivity থেকে এটি কল হবে
+    public void resumeUpdateFlow() {
+        String pendingUrl = prefs.getString(KEY_PENDING_URL, null);
+        if (pendingUrl != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && context.getPackageManager().canRequestPackageInstalls()) {
+                new AlertDialog.Builder(context)
+                        .setTitle("Ready to Update")
+                        .setMessage("Permission granted! Would you like to start the update now?")
+                        .setPositiveButton("Update", (dialog, which) -> startDownload(pendingUrl))
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            }
+            // কাজ শেষ বা ইউজার পারমিশন দেয়নি, তাই এটি ক্লিয়ার করে দিচ্ছি
+            prefs.edit().remove(KEY_PENDING_URL).apply();
+        }
+    }
+
+    private void startDownload(String downloadUrl) {
         executorService.execute(() -> {
+            HttpURLConnection connection = null;
+            InputStream inputStream = null;
+            FileOutputStream outputStream = null;
             try {
                 URL url = new URL(downloadUrl);
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection = (HttpURLConnection) url.openConnection();
                 connection.connect();
 
-                File cacheDir = new File(context.getCacheDir(), "updates");
+                File cacheDir = new File(context.getExternalCacheDir(), "updates");
                 if (!cacheDir.exists()) cacheDir.mkdirs();
 
                 File apkFile = new File(cacheDir, "update.apk");
                 if (apkFile.exists()) apkFile.delete();
 
-                InputStream inputStream = connection.getInputStream();
-                FileOutputStream outputStream = new FileOutputStream(apkFile);
+                inputStream = connection.getInputStream();
+                outputStream = new FileOutputStream(apkFile);
 
                 byte[] buffer = new byte[4096];
                 int bytesRead;
@@ -141,23 +225,43 @@ public class UpdateManager {
                     outputStream.write(buffer, 0, bytesRead);
                 }
 
+                outputStream.flush();
                 outputStream.close();
+                outputStream = null;
+                
                 inputStream.close();
+                inputStream = null;
+                
                 connection.disconnect();
+                connection = null;
 
                 mainHandler.post(() -> launchProcessInstall(apkFile));
             } catch (Exception e) {
                 e.printStackTrace();
+            } finally {
+                if (outputStream != null) {
+                    try { outputStream.close(); } catch (Exception ignored) {}
+                }
+                if (inputStream != null) {
+                    try { inputStream.close(); } catch (Exception ignored) {}
+                }
+                if (connection != null) {
+                    connection.disconnect();
+                }
             }
         });
     }
 
     private void launchProcessInstall(File apkFile) {
-        Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apkFile);
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        context.startActivity(intent);
+        try {
+            Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apkFile);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
