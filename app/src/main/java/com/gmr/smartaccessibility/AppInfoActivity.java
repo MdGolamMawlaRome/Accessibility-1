@@ -19,7 +19,7 @@ public class AppInfoActivity extends AppCompatActivity {
         textView.setPadding(50, 50, 50, 50);
         // সঠিক পদ্ধতি: স্পেসিফাই করা যে এটি SP ইউনিট
         textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18); 
-        textView.setTextColor(0xFF1C1C1E);
+        TypedArray typedArray = obtainStyledAttributes(new int[]{android.R.attr.textColorPrimary});
         setContentView(textView);
 
         try {
