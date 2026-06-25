@@ -20,7 +20,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import java.util.Set;
 
 public class PopupUIController {
     private final AccessibilityService service;
@@ -115,6 +114,19 @@ public class PopupUIController {
         if (popupView == null) return;
         
         int activeStream = audioController.getActiveStream();
+        
+        // ১. মেইন আইকন ডাইনামিকভাবে পরিবর্তন করার লজিক
+        ImageView mainIcon = popupView.findViewById(R.id.imgMainVolume);
+        if (mainIcon != null) {
+            int iconResId = R.drawable.ic_volume_media; // ডিফল্ট
+            if (activeStream == AudioManager.STREAM_VOICE_CALL) {
+                iconResId = R.drawable.ic_volume_call;
+            } else if (activeStream == AudioManager.STREAM_RING) {
+                iconResId = R.drawable.ic_volume_ring;
+            }
+            mainIcon.setImageResource(iconResId);
+        }
+
         setupMainVolumeSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream);
         
         bindRow(R.id.rowMedia, R.drawable.ic_volume_media, AudioManager.STREAM_MUSIC);
@@ -123,9 +135,9 @@ public class PopupUIController {
         bindRow(R.id.rowCall, R.drawable.ic_volume_call, AudioManager.STREAM_VOICE_CALL);
         bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM);
 
-        // লাইভ ডেটার বদলে স্ট্যাটিক সেভড ডেটা থেকে চেক করা হচ্ছে
+        // ২. রিং এবং নোটিফিকেশন মার্চড থাকলে নোটিফিকেশন রো হাইড করে দেওয়া
         View rowNotif = popupView.findViewById(R.id.rowNotification);
-        if (VolumeCalibrator.isNotificationMerged(service)) {
+        if (audioController.isNotificationMergedWithRing()) {
             rowNotif.setVisibility(View.GONE);
         } else {
             rowNotif.setVisibility(View.VISIBLE);
@@ -185,20 +197,9 @@ public class PopupUIController {
             public void onProgressChanged(SeekBar seekBar, int prog, boolean fromUser) {
                 if (fromUser) {
                     textView.setText(prog + "%");
-                    Set<String> streams = VolumeCalibrator.getDetectedStreams(service);
-                    if (streams.isEmpty()) {
-                        int vol = max > 0 ? Math.round((prog / 100f) * max) : 0;
-                        audioController.setVolume(activeStreamType, vol);
-                    } else {
-                        for (String streamStr : streams) {
-                            try {
-                                int streamType = Integer.parseInt(streamStr);
-                                int sMax = audioController.getMaxVolume(streamType);
-                                int vol = sMax > 0 ? Math.round((prog / 100f) * sMax) : 0;
-                                audioController.setVolume(streamType, vol);
-                            } catch (Exception e) {}
-                        }
-                    }
+                    // বাগ ফিক্স: ফালতু লুপ রিমুভ করে শুধুমাত্র অ্যাক্টিভ স্ট্রিম আপডেট করা হচ্ছে
+                    int vol = max > 0 ? Math.round((prog / 100f) * max) : 0;
+                    audioController.setVolume(activeStreamType, vol);
                 }
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
