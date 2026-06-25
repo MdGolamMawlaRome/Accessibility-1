@@ -47,6 +47,7 @@ public class PopupUIController {
         if (popupView != null) return;
 
         popupView = LayoutInflater.from(service).inflate(R.layout.accessibility_popup, null);
+        if (popupView == null) return;
 
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -56,25 +57,37 @@ public class PopupUIController {
                 PixelFormat.TRANSLUCENT
         );
 
-        popupView.findViewById(R.id.fullscreenRoot).setOnClickListener(v -> hideMenu());
+        View fullscreenRoot = popupView.findViewById(R.id.fullscreenRoot);
+        if (fullscreenRoot != null) {
+            fullscreenRoot.setOnClickListener(v -> hideMenu());
+        }
+
         LinearLayout popupRoot = popupView.findViewById(R.id.popupRoot);
-        popupRoot.setOnClickListener(v -> {});
+        if (popupRoot != null) {
+            popupRoot.setOnClickListener(v -> {});
 
-        DisplayMetrics metrics = new DisplayMetrics();
-        windowManager.getDefaultDisplay().getRealMetrics(metrics);
-        int bottomGap = metrics.heightPixels / 11;
-        
-        FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) popupRoot.getLayoutParams();
-        layoutParams.gravity = Gravity.BOTTOM;
-        layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), bottomGap);
-        popupRoot.setLayoutParams(layoutParams);
+            DisplayMetrics metrics = new DisplayMetrics();
+            if (windowManager != null && windowManager.getDefaultDisplay() != null) {
+                windowManager.getDefaultDisplay().getRealMetrics(metrics);
+                int bottomGap = metrics.heightPixels / 11;
+                
+                FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) popupRoot.getLayoutParams();
+                if (layoutParams != null) {
+                    layoutParams.gravity = Gravity.BOTTOM;
+                    layoutParams.setMargins(dpToPx(16), 0, dpToPx(16), bottomGap);
+                    popupRoot.setLayoutParams(layoutParams);
+                }
+            }
+            applyThemeStyles(popupRoot);
+        }
 
-        applyThemeStyles(popupRoot);
         setupButtonsAndViews();
         setupBrightnessSlider();
         updateAllVolumeSliders(); 
 
-        windowManager.addView(popupView, params);
+        if (windowManager != null) {
+            windowManager.addView(popupView, params);
+        }
     }
 
     public void hideMenu() {
@@ -85,29 +98,47 @@ public class PopupUIController {
     }
 
     private void setupButtonsAndViews() {
+        if (popupView == null) return;
         LinearLayout mainLayout = popupView.findViewById(R.id.mainControlsLayout);
         LinearLayout expandedLayout = popupView.findViewById(R.id.expandedVolumeLayout);
 
-        popupView.findViewById(R.id.btnExpand).setOnClickListener(v -> {
-            mainLayout.setVisibility(View.GONE);
-            expandedLayout.setVisibility(View.VISIBLE);
-        });
+        View btnExpand = popupView.findViewById(R.id.btnExpand);
+        if (btnExpand != null && mainLayout != null && expandedLayout != null) {
+            btnExpand.setOnClickListener(v -> {
+                mainLayout.setVisibility(View.GONE);
+                expandedLayout.setVisibility(View.VISIBLE);
+            });
+        }
 
-        popupView.findViewById(R.id.btnVolumeBack).setOnClickListener(v -> {
-            expandedLayout.setVisibility(View.GONE);
-            mainLayout.setVisibility(View.VISIBLE);
-        });
+        View btnVolumeBack = popupView.findViewById(R.id.btnVolumeBack);
+        if (btnVolumeBack != null && mainLayout != null && expandedLayout != null) {
+            btnVolumeBack.setOnClickListener(v -> {
+                expandedLayout.setVisibility(View.GONE);
+                mainLayout.setVisibility(View.VISIBLE);
+            });
+        }
 
-        popupView.findViewById(R.id.btnScreenshot).setOnClickListener(v -> {
-            hideMenu(); service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
-        });
-        popupView.findViewById(R.id.btnPower).setOnClickListener(v -> {
-            hideMenu(); service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_POWER_DIALOG);
-        });
-        popupView.findViewById(R.id.btnLock).setOnClickListener(v -> {
-            hideMenu();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
-        });
+        View btnScreenshot = popupView.findViewById(R.id.btnScreenshot);
+        if (btnScreenshot != null) {
+            btnScreenshot.setOnClickListener(v -> {
+                hideMenu(); service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT);
+            });
+        }
+
+        View btnPower = popupView.findViewById(R.id.btnPower);
+        if (btnPower != null) {
+            btnPower.setOnClickListener(v -> {
+                hideMenu(); service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_POWER_DIALOG);
+            });
+        }
+
+        View btnLock = popupView.findViewById(R.id.btnLock);
+        if (btnLock != null) {
+            btnLock.setOnClickListener(v -> {
+                hideMenu();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN);
+            });
+        }
     }
 
     public void updateAllVolumeSliders() {
@@ -139,7 +170,6 @@ public class PopupUIController {
         bindRow(R.id.rowCall, R.drawable.ic_volume_call, AudioManager.STREAM_VOICE_CALL, "Call");
         bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM, "Alarm");
 
-        // কন্ডিশন বাদ দিয়ে নোটিফিকেশন রRow-টিকে সবসময় দৃশ্যমান রাখার জন্য সেফটি চেকসহ কোডটি মডিফাই করা হলো
         View rowNotif = popupView.findViewById(R.id.rowNotification);
         if (rowNotif != null) {
             rowNotif.setVisibility(View.VISIBLE);
@@ -148,6 +178,7 @@ public class PopupUIController {
     }
 
     private void bindRow(int rowId, int iconResId, int streamType, String labelText) {
+        if (popupView == null) return;
         View row = popupView.findViewById(rowId);
         if (row == null) return;
         
@@ -161,7 +192,9 @@ public class PopupUIController {
             icon.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
         }
 
-        setupSingleSlider(slider, text, streamType, labelText);
+        if (slider != null && text != null) {
+            setupSingleSlider(slider, text, streamType, labelText);
+        }
     }
 
     private void setupSingleSlider(SeekBar slider, TextView textView, int streamType, String labelText) {
@@ -172,7 +205,6 @@ public class PopupUIController {
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
         
-        // সিকবারের নীল দাগ সেট করার মূল ডিফেন্সিভ কমান্ড
         slider.setProgress(progress); 
         textView.setText(labelText + " " + progress + "%");
 
@@ -199,7 +231,6 @@ public class PopupUIController {
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
         
-        // মেইন ভলিউম সিকবারের নীল দাগ সেট করার কমান্ড
         slider.setProgress(progress);
         textView.setText(labelText + " " + progress + "%");
 
@@ -231,6 +262,7 @@ public class PopupUIController {
     }
 
     private void setupBrightnessSlider() {
+        if (popupView == null) return;
         SeekBar brightnessSlider = popupView.findViewById(R.id.brightnessSlider);
         TextView brightnessText = popupView.findViewById(R.id.brightnessPercentText);
         if (brightnessSlider == null || brightnessText == null) return;
@@ -268,6 +300,7 @@ public class PopupUIController {
     }
 
     private void applyThemeStyles(LinearLayout popupRoot) {
+        if (popupView == null || popupRoot == null) return;
         boolean isDarkTheme = (service.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         int panelBgColor = isDarkTheme ? Color.parseColor("#E6121212") : Color.parseColor("#E6F5F5F7");
         int primaryTextColor = isDarkTheme ? Color.WHITE : Color.parseColor("#1C1C1E");
