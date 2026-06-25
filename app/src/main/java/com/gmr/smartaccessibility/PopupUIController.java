@@ -116,7 +116,6 @@ public class PopupUIController {
         int activeStream = audioController.getActiveStream();
         ImageView mainIcon = popupView.findViewById(R.id.imgMainVolume);
         
-        // ডাইনামিক নাম এবং আইকন নির্ধারণ
         String mainLabel = "Media";
         int iconResId = R.drawable.ic_volume_media;
         
@@ -134,17 +133,15 @@ public class PopupUIController {
 
         setupMainVolumeSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream, mainLabel);
         
-        // সম্পূর্ণ নামগুলো পাস করা হচ্ছে
         bindRow(R.id.rowMedia, R.drawable.ic_volume_media, AudioManager.STREAM_MUSIC, "Media");
         bindRow(R.id.rowRing, R.drawable.ic_volume_ring, AudioManager.STREAM_RING, "Ring");
         bindRow(R.id.rowSystem, R.drawable.ic_volume_system, AudioManager.STREAM_SYSTEM, "System");
         bindRow(R.id.rowCall, R.drawable.ic_volume_call, AudioManager.STREAM_VOICE_CALL, "Call");
         bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM, "Alarm");
 
+        // কন্ডিশন বাদ দিয়ে নোটিফিকেশন রRow-টিকে সবসময় দৃশ্যমান রাখার জন্য সেফটি চেকসহ কোডটি মডিফাই করা হলো
         View rowNotif = popupView.findViewById(R.id.rowNotification);
-        if (audioController.isNotificationMergedWithRing()) {
-            rowNotif.setVisibility(View.GONE);
-        } else {
+        if (rowNotif != null) {
             rowNotif.setVisibility(View.VISIBLE);
             bindRow(R.id.rowNotification, R.drawable.ic_volume_notification, AudioManager.STREAM_NOTIFICATION, "Notification");
         }
@@ -158,19 +155,25 @@ public class PopupUIController {
         SeekBar slider = row.findViewById(R.id.rowSlider);
         TextView text = row.findViewById(R.id.rowPercentText);
 
-        icon.setImageResource(iconResId);
-        int iconTint = (service.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES ? Color.WHITE : Color.parseColor("#1C1C1E");
-        icon.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
+        if (icon != null) {
+            icon.setImageResource(iconResId);
+            int iconTint = (service.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES ? Color.WHITE : Color.parseColor("#1C1C1E");
+            icon.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
+        }
 
         setupSingleSlider(slider, text, streamType, labelText);
     }
 
     private void setupSingleSlider(SeekBar slider, TextView textView, int streamType, String labelText) {
+        if (slider == null || textView == null) return;
+
         int max = audioController.getMaxVolume(streamType);
         int cur = audioController.getCurrentVolume(streamType);
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
         
+        // সিকবারের নীল দাগ সেট করার মূল ডিফেন্সিভ কমান্ড
+        slider.setProgress(progress); 
         textView.setText(labelText + " " + progress + "%");
 
         slider.setOnSeekBarChangeListener(null);
@@ -189,11 +192,15 @@ public class PopupUIController {
     }
 
     private void setupMainVolumeSlider(SeekBar slider, TextView textView, int activeStreamType, String labelText) {
+        if (slider == null || textView == null) return;
+
         int max = audioController.getMaxVolume(activeStreamType);
         int cur = audioController.getCurrentVolume(activeStreamType);
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
         
+        // মেইন ভলিউম সিকবারের নীল দাগ সেট করার কমান্ড
+        slider.setProgress(progress);
         textView.setText(labelText + " " + progress + "%");
 
         slider.setOnSeekBarChangeListener(null);
@@ -226,12 +233,13 @@ public class PopupUIController {
     private void setupBrightnessSlider() {
         SeekBar brightnessSlider = popupView.findViewById(R.id.brightnessSlider);
         TextView brightnessText = popupView.findViewById(R.id.brightnessPercentText);
+        if (brightnessSlider == null || brightnessText == null) return;
+
         int currentBrightness = getCurrentSystemBrightness();
         int brightnessProgress = (currentBrightness * 100) / 255;
         brightnessSlider.setMax(100);
         brightnessSlider.setProgress(brightnessProgress);
         
-        // সম্পূর্ণ "Brightness" নাম জুড়ে দেওয়া হলো
         brightnessText.setText("Brightness " + brightnessProgress + "%");
 
         brightnessSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
