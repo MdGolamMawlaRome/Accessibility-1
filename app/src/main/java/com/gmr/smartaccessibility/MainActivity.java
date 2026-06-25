@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.view.View;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -33,10 +34,18 @@ public class MainActivity extends AppCompatActivity {
         updateManager = new UpdateManager(this);
         updateManager.checkForUpdates();
 
-        // নোটিফিকেশনে ক্লিক করে অ্যাপ ওপেন হলে এই মেথড কাজ করবে
+        // Hamburger Menu Initialization
+        View btnHomeMenu = findViewById(R.id.btnHomeMenu);
+        HomeMenuController homeMenuController = new HomeMenuController(this);
+
+        if (btnHomeMenu != null) {
+            btnHomeMenu.setOnClickListener(v -> {
+                homeMenuController.showMenu(btnHomeMenu);
+            });
+        }
+
         handleUpdateIntent(getIntent());
 
-        // অ্যান্ড্রয়েড ১৩+ এ নোটিফিকেশন পাঠানোর পারমিশন
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
@@ -49,13 +58,11 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         checkRequiredPermissions();
         
-        // ইউজার আপডেট পারমিশন সেটিংস থেকে ফিরে আসলে এটি কল হবে
         if (updateManager != null) {
             updateManager.resumeUpdateFlow();
         }
     }
 
-    // অ্যাপ আগে থেকেই ওপেন থাকলে নোটিফিকেশনের ক্লিক এখানে আসবে
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -69,7 +76,6 @@ public class MainActivity extends AppCompatActivity {
             if (updateManager != null) {
                 updateManager.processUpdate(url);
             }
-            // Intent থেকে URL মুছে ফেলা হচ্ছে যেন বারবার ট্রিগার না হয়
             intent.removeExtra("UPDATE_URL");
         }
     }
