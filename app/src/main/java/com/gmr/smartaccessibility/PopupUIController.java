@@ -116,6 +116,7 @@ public class PopupUIController {
         int activeStream = audioController.getActiveStream();
         ImageView mainIcon = popupView.findViewById(R.id.imgMainVolume);
         
+        // ডাইনামিক নাম এবং আইকন নির্ধারণ
         String mainLabel = "Media";
         int iconResId = R.drawable.ic_volume_media;
         
@@ -133,6 +134,7 @@ public class PopupUIController {
 
         setupMainVolumeSlider(popupView.findViewById(R.id.mainVolumeSlider), popupView.findViewById(R.id.mainVolumePercentText), activeStream, mainLabel);
         
+        // সম্পূর্ণ নামগুলো পাস করা হচ্ছে
         bindRow(R.id.rowMedia, R.drawable.ic_volume_media, AudioManager.STREAM_MUSIC, "Media");
         bindRow(R.id.rowRing, R.drawable.ic_volume_ring, AudioManager.STREAM_RING, "Ring");
         bindRow(R.id.rowSystem, R.drawable.ic_volume_system, AudioManager.STREAM_SYSTEM, "System");
@@ -140,8 +142,10 @@ public class PopupUIController {
         bindRow(R.id.rowAlarm, R.drawable.ic_volume_alarm, AudioManager.STREAM_ALARM, "Alarm");
 
         View rowNotif = popupView.findViewById(R.id.rowNotification);
-        if (rowNotif != null) {
-            rowNotif.setVisibility(View.VISIBLE); // সবসময় দৃশ্যমান রাখা হলো
+        if (audioController.isNotificationMergedWithRing()) {
+            rowNotif.setVisibility(View.GONE);
+        } else {
+            rowNotif.setVisibility(View.VISIBLE);
             bindRow(R.id.rowNotification, R.drawable.ic_volume_notification, AudioManager.STREAM_NOTIFICATION, "Notification");
         }
     }
@@ -167,9 +171,9 @@ public class PopupUIController {
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
         
-        slider.setProgress(progress); // স্লাইডার নীল দাগ আপডেট নিশ্চিত করা হলো
         textView.setText(labelText + " " + progress + "%");
 
+        slider.setOnSeekBarChangeListener(null);
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int prog, boolean fromUser) {
@@ -190,9 +194,9 @@ public class PopupUIController {
         slider.setMax(100);
         int progress = max > 0 ? (cur * 100) / max : 0;
         
-        slider.setProgress(progress); // মেইন স্লাইডার আপডেট নিশ্চিত করা হলো
         textView.setText(labelText + " " + progress + "%");
 
+        slider.setOnSeekBarChangeListener(null);
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int prog, boolean fromUser) {
@@ -227,6 +231,7 @@ public class PopupUIController {
         brightnessSlider.setMax(100);
         brightnessSlider.setProgress(brightnessProgress);
         
+        // সম্পূর্ণ "Brightness" নাম জুড়ে দেওয়া হলো
         brightnessText.setText("Brightness " + brightnessProgress + "%");
 
         brightnessSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -263,7 +268,7 @@ public class PopupUIController {
         GradientDrawable backgroundShape = (GradientDrawable) popupRoot.getBackground();
         if (backgroundShape != null) backgroundShape.setColor(panelBgColor);
 
-        int[] iconIds = {R.id.imgBrightness, R.id.imgMainVolume, R.id.btnExpand, R.id.btnVolumeBack, R.id.imgScreenshot, R.id.btnPower, R.id.btnLock};
+        int[] iconIds = {R.id.imgBrightness, R.id.imgMainVolume, R.id.btnExpand, R.id.btnVolumeBack, R.id.imgScreenshot, R.id.imgPower, R.id.imgLock};
         for (int id : iconIds) {
             ImageView img = popupView.findViewById(id);
             if (img != null) img.setColorFilter(iconTint, PorterDuff.Mode.SRC_IN);
