@@ -2,6 +2,7 @@ package com.gmr.smartaccessibility;
 
 import android.content.pm.PackageInfo;
 import android.os.Bundle;
+import android.util.TypedValue; // এই লাইনটি যোগ করা হয়েছে
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import java.text.SimpleDateFormat;
@@ -16,7 +17,8 @@ public class AppInfoActivity extends AppCompatActivity {
         
         TextView textView = new TextView(this);
         textView.setPadding(50, 50, 50, 50);
-        textView.setTextSize(18sp);
+        // সঠিক পদ্ধতি: স্পেসিফাই করা যে এটি SP ইউনিট
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18); 
         textView.setTextColor(0xFF1C1C1E);
         setContentView(textView);
 
