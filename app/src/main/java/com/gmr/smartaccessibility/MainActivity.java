@@ -2,6 +2,7 @@ package com.gmr.smartaccessibility;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -9,6 +10,8 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,18 +28,50 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         dynamicHomepageText = findViewById(R.id.dynamicHomepageText);
-        
         loadTextFromAssets();
 
-        // Auto Update চেক করার লজিক
         updateManager = new UpdateManager(this);
         updateManager.checkForUpdates();
+
+        // নোটিফিকেশনে ক্লিক করে অ্যাপ ওপেন হলে এই মেথড কাজ করবে
+        handleUpdateIntent(getIntent());
+
+        // অ্যান্ড্রয়েড ১৩+ এ নোটিফিকেশন পাঠানোর পারমিশন
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         checkRequiredPermissions();
+        
+        // ইউজার আপডেট পারমিশন সেটিংস থেকে ফিরে আসলে এটি কল হবে
+        if (updateManager != null) {
+            updateManager.resumeUpdateFlow();
+        }
+    }
+
+    // অ্যাপ আগে থেকেই ওপেন থাকলে নোটিফিকেশনের ক্লিক এখানে আসবে
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleUpdateIntent(intent);
+    }
+
+    private void handleUpdateIntent(Intent intent) {
+        if (intent != null && intent.hasExtra("UPDATE_URL")) {
+            String url = intent.getStringExtra("UPDATE_URL");
+            if (updateManager != null) {
+                updateManager.processUpdate(url);
+            }
+            // Intent থেকে URL মুছে ফেলা হচ্ছে যেন বারবার ট্রিগার না হয়
+            intent.removeExtra("UPDATE_URL");
+        }
     }
 
     private void loadTextFromAssets() {
