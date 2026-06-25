@@ -23,6 +23,11 @@
             </intent-filter>
         </activity>
 
+        <!-- New AppInfoActivity registered here -->
+        <activity 
+            android:name=".AppInfoActivity" 
+            android:exported="false" />
+
         <service
             android:name=".SmartAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
