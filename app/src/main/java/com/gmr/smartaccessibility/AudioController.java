@@ -11,6 +11,7 @@ public class AudioController {
     }
 
     public boolean isNotificationMergedWithRing() {
+        // রিং এবং নোটিফিকেশন ভলিউম সিস্টেম লেভেলে এক করা আছে কি না, তা চেক করার লজিক
         int ringMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING);
         int notifMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
         int ringCur = audioManager.getStreamVolume(AudioManager.STREAM_RING);
