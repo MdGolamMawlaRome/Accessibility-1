@@ -10,8 +10,8 @@ android {
         applicationId "com.gmr.smartaccessibility"
         minSdk 24
         targetSdk 34
-        versionCode 17
-        versionName "2.5.0"
+        versionCode 18
+        versionName "2.5.1"
         
         // ১. শুধুমাত্র ইংরেজি এবং বাংলা ভাষা রেখে বাকি সব ফালতু ভাষা রিমুভ করবে
         resConfigs "en", "bn"
