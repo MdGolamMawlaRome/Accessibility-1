@@ -13,6 +13,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.FileProvider;
 import org.json.JSONArray;
@@ -46,16 +47,18 @@ public class UpdateManager {
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
-    public void checkForUpdates() {
+    public void checkForUpdates(boolean isManualCheck) {
         long lastCheckTime = prefs.getLong(KEY_LAST_CHECK, 0);
         long currentTime = System.currentTimeMillis();
-
-        // এই ভ্যারিয়েবলটি দিয়ে আপডেট চেক করার সময়ের ব্যবধান (মিলিসেকেন্ডে) নির্ধারণ করা হয়েছে
         long updateCheckingInterval = 6 * 60 * 60 * 1000;
 
-        // নির্ধারিত সময়ের আগে অ্যাপ্লিকেশন পুনরায় নতুন আপডেট চেক করবে না
-        if (currentTime - lastCheckTime < updateCheckingInterval) {
+        if (!isManualCheck && (currentTime - lastCheckTime < updateCheckingInterval)) {
             return;
+        }
+
+        if (isManualCheck) {
+            Toast.setCurrentToast(Toast.makeText(context, "Checking for latest updates...", Toast.LENGTH_SHORT));
+            Toast.getCurrentToast().show();
         }
 
         executorService.execute(() -> {
@@ -77,7 +80,6 @@ public class UpdateManager {
                         response.append(line);
                     }
 
-                    // সার্ভার থেকে সফলভাবে ডেটা পেলে সময় সেভ করবে
                     prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply();
 
                     JSONObject jsonObject = new JSONObject(response.toString());
@@ -92,6 +94,8 @@ public class UpdateManager {
                             String downloadUrl = assets.getJSONObject(0).getString("browser_download_url");
                             mainHandler.post(() -> showUpdateNotification(downloadUrl));
                         }
+                    } else if (isManualCheck) {
+                        mainHandler.post(() -> Toast.makeText(context, "App is already up to date!", Toast.LENGTH_SHORT).show());
                     }
                 }
             } catch (Exception e) {
@@ -159,11 +163,9 @@ public class UpdateManager {
         notificationManager.notify(1001, builder.build());
     }
 
-    // নোটিফিকেশন থেকে ক্লিক হয়ে আসলে এই মেথড কল হবে
     public void processUpdate(String downloadUrl) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!context.getPackageManager().canRequestPackageInstalls()) {
-                // পারমিশন নেই, তাই URL সেভ করে রাখছি যেন ইউজার ফিরে এলে কাজ শুরু করা যায়
                 prefs.edit().putString(KEY_PENDING_URL, downloadUrl).apply();
                 
                 new AlertDialog.Builder(context)
@@ -181,11 +183,9 @@ public class UpdateManager {
                 return;
             }
         }
-        // পারমিশন থাকলে সরাসরি ডাউনলোড
         startDownload(downloadUrl);
     }
 
-    // ইউজার সেটিংস থেকে ফিরে আসার পর MainActivity থেকে এটি কল হবে
     public void resumeUpdateFlow() {
         String pendingUrl = prefs.getString(KEY_PENDING_URL, null);
         if (pendingUrl != null) {
@@ -197,7 +197,6 @@ public class UpdateManager {
                         .setNegativeButton("Cancel", null)
                         .show();
             }
-            // কাজ শেষ বা ইউজার পারমিশন দেয়নি, তাই এটি ক্লিয়ার করে দিচ্ছি
             prefs.edit().remove(KEY_PENDING_URL).apply();
         }
     }
@@ -255,15 +254,22 @@ public class UpdateManager {
     }
 
     private void launchProcessInstall(File apkFile) {
-        try {
-            Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apkFile);
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        new AlertDialog.Builder(context)
+                .setTitle("Update Guidance")
+                .setMessage("Dear user, if you are seeing this message, so that means my app is still in verification process under Google. So , for currently you have to click a few buttons for update, firstly, when play store comes, you have to click on \"more\" and than \"install anyway\"")
+                .setCancelable(false)
+                .setPositiveButton("Proceed to Install", (dialog, which) -> {
+                    try {
+                        Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apkFile);
+                        Intent intent = new Intent(Intent.ACTION_VIEW);
+                        intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        context.startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                })
+                .show();
     }
 }
