@@ -1,8 +1,12 @@
 package com.gmr.smartaccessibility;
 
 import android.content.pm.PackageInfo;
+import android.content.res.TypedArray;
 import android.os.Bundle;
-import android.util.TypedValue; // এই লাইনটি যোগ করা হয়েছে
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import java.text.SimpleDateFormat;
@@ -14,44 +18,52 @@ public class AppInfoActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        TextView textView = new TextView(this);
-        textView.setPadding(50, 50, 50, 50);
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18); 
 
-        // ফিক্সড কালারের বদলে সিস্টেমের থিম কালার ব্যবহার করছি
         TypedArray typedArray = obtainStyledAttributes(new int[]{android.R.attr.textColorPrimary});
-        int textColor = typedArray.getColor(0, 0xFF000000); // ডিফল্ট কালো ধরে নিচ্ছি যদি থিম না পাওয়া যায়
+        int textColor = typedArray.getColor(0, 0xFF000000); 
         typedArray.recycle();
-        
-        textView.setTextColor(textColor);
-        setContentView(textView);
 
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(50, 50, 50, 50);
+
+        // Header
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(0, 0, 0, 80);
+
+        ImageView backBtn = new ImageView(this);
+        backBtn.setImageResource(R.drawable.ic_back_curved);
+        backBtn.setPadding(10, 10, 30, 10);
+        backBtn.setOnClickListener(v -> finish()); 
+
+        TextView title = new TextView(this);
+        title.setText("App Info");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        title.setTextColor(textColor);
+
+        header.addView(backBtn);
+        header.addView(title);
+        root.addView(header);
+
+        // Content
+        TextView content = new TextView(this);
+        content.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18); 
+        content.setTextColor(textColor);
+        
         try {
             PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
             String versionName = pInfo.versionName;
-            long versionCode;
-            
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                versionCode = pInfo.getLongVersionCode();
-            } else {
-                versionCode = pInfo.versionCode;
-            }
+            long versionCode = (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) ? pInfo.getLongVersionCode() : pInfo.versionCode;
+            String lastUpdateDate = new SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.getDefault()).format(new Date(pInfo.lastUpdateTime));
 
-            long lastUpdateTimeMillis = pInfo.lastUpdateTime;
-            SimpleDateFormat dateFormat = new SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.getDefault());
-            String lastUpdateDate = dateFormat.format(new Date(lastUpdateTimeMillis));
-
-            String infoText = "App Information\n\n" +
-                    "Version Name: " + versionName + "\n" +
-                    "Version Code: " + versionCode + "\n" +
-                    "Last Updated: " + lastUpdateDate;
-
-            textView.setText(infoText);
-
+            content.setText("Version Name: " + versionName + "\nVersion Code: " + versionCode + "\nLast Updated: " + lastUpdateDate);
         } catch (Exception e) {
-            e.printStackTrace();
-            textView.setText("Failed to load app information.");
+            content.setText("Failed to load app information.");
         }
+        
+        root.addView(content);
+        setContentView(root);
     }
 }
