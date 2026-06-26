@@ -232,7 +232,7 @@ public class UpdateManager {
     private void launchProcessInstall(File apkFile) {
         new AlertDialog.Builder(context)
                 .setTitle("Update Guidance")
-                .setMessage("Dear user, if you are seeing this message, so that means my app is still in verification process under Google. So , for currently you have to click a few buttons for update, firstly, when play store comes, you have to click on \"more\" and than \"install anyway\"")
+                .setMessage("Dear user, if you are seeing this message, so that means my app is still in verification process under Google. So , for currently you have to click a few buttons for update, firstly, when play store comes, you have to click on \"more\" and than \"install anyway\" or there can be like these, where it will ask to \"scan the app\" or to \"cancel\", if you want to update so you can click on \"more options\" or \"more read\" and then click on \"install without scan\". You can also click on \"scan\" but this will make the update process more confusing for a normal user. And before these you have to select an installer, it will show you one or two, you have to select the package installer that is default in Android. And than you can update as I have guided you. "")
                 .setCancelable(false)
                 .setPositiveButton("Proceed to Install", (dialog, which) -> {
                     try {
