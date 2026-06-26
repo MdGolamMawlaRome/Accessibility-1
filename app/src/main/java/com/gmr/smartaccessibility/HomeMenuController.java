@@ -10,10 +10,12 @@ import android.widget.PopupWindow;
 public class HomeMenuController {
 
     private final Context context;
+    private final UpdateManager updateManager;
     private PopupWindow popupWindow;
 
-    public HomeMenuController(Context context) {
+    public HomeMenuController(Context context, UpdateManager updateManager) {
         this.context = context;
+        this.updateManager = updateManager;
     }
 
     public void showMenu(View anchorView) {
@@ -34,6 +36,29 @@ public class HomeMenuController {
         popupWindow.setOutsideTouchable(true);
         popupWindow.setElevation(16f);
 
+        // Logic for Settings Row
+        View rowSettings = menuView.findViewById(R.id.rowSettings);
+        if (rowSettings != null) {
+            rowSettings.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                Intent intent = new Intent(context, SettingsActivity.class);
+                context.startActivity(intent);
+            });
+        }
+
+        // Logic for Check for Updates Row
+        View rowCheckUpdate = menuView.findViewById(R.id.rowCheckUpdate);
+        if (rowCheckUpdate != null) {
+            rowCheckUpdate.setOnClickListener(v -> {
+                popupWindow.dismiss();
+                if (updateManager != null) {
+                    // Passed "true" so it ignores the 6-hour interval and checks instantly
+                    updateManager.checkForUpdates(true);
+                }
+            });
+        }
+
+        // Logic for App Info Row
         View rowAppInfo = menuView.findViewById(R.id.rowAppInfo);
         if (rowAppInfo != null) {
             rowAppInfo.setOnClickListener(v -> {
