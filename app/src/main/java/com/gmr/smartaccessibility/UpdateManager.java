@@ -13,7 +13,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.FileProvider;
 import org.json.JSONArray;
@@ -47,68 +46,77 @@ public class UpdateManager {
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
+    // Background auto-check
     public void checkForUpdates(boolean isManualCheck) {
         long lastCheckTime = prefs.getLong(KEY_LAST_CHECK, 0);
         long currentTime = System.currentTimeMillis();
         long updateCheckingInterval = 6 * 60 * 60 * 1000;
 
-        if (!isManualCheck && (currentTime - lastCheckTime < updateCheckingInterval)) {
-            return;
-        }
-
-        if (isManualCheck) {
-            Toast.setCurrentToast(Toast.makeText(context, "Checking for latest updates...", Toast.LENGTH_SHORT));
-            Toast.getCurrentToast().show();
-        }
+        if (!isManualCheck && (currentTime - lastCheckTime < updateCheckingInterval)) return;
 
         executorService.execute(() -> {
-            HttpURLConnection connection = null;
-            BufferedReader reader = null;
             try {
-                URL url = new URL(LATEST_RELEASE_API);
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setConnectTimeout(10000);
-                connection.setReadTimeout(10000);
-                connection.setRequestProperty("User-Agent", "Smart-Accessibility-App");
-
-                if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                    reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                    StringBuilder response = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        response.append(line);
+                fetchUpdateData(new UpdateCallback() {
+                    @Override
+                    public void onUpdateAvailable(String version, String downloadUrl) {
+                        showUpdateNotification(downloadUrl);
                     }
-
-                    prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply();
-
-                    JSONObject jsonObject = new JSONObject(response.toString());
-                    String latestVersion = jsonObject.getString("tag_name").replace("v", "").trim();
-                    
-                    PackageInfo pInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
-                    String currentVersion = pInfo.versionName.trim();
-
-                    if (isNewerVersion(currentVersion, latestVersion)) {
-                        JSONArray assets = jsonObject.getJSONArray("assets");
-                        if (assets.length() > 0) {
-                            String downloadUrl = assets.getJSONObject(0).getString("browser_download_url");
-                            mainHandler.post(() -> showUpdateNotification(downloadUrl));
-                        }
-                    } else if (isManualCheck) {
-                        mainHandler.post(() -> Toast.makeText(context, "App is already up to date!", Toast.LENGTH_SHORT).show());
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (reader != null) {
-                    try { reader.close(); } catch (Exception ignored) {}
-                }
-                if (connection != null) {
-                    connection.disconnect();
-                }
-            }
+                    @Override public void onUpToDate() {}
+                    @Override public void onError(String msg) {}
+                });
+            } catch (Exception e) { e.printStackTrace(); }
         });
+    }
+
+    // New method for CheckUpdateActivity
+    public void checkForUpdatesWithCallback(UpdateCallback callback) {
+        executorService.execute(() -> fetchUpdateData(callback));
+    }
+
+    private void fetchUpdateData(UpdateCallback callback) {
+        HttpURLConnection connection = null;
+        BufferedReader reader = null;
+        try {
+            URL url = new URL(LATEST_RELEASE_API);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(10000);
+            connection.setRequestProperty("User-Agent", "Smart-Accessibility-App");
+
+            if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) response.append(line);
+
+                prefs.edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply();
+
+                JSONObject jsonObject = new JSONObject(response.toString());
+                String latestVersion = jsonObject.getString("tag_name").replace("v", "").trim();
+                
+                PackageInfo pInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+                String currentVersion = pInfo.versionName.trim();
+
+                if (isNewerVersion(currentVersion, latestVersion)) {
+                    JSONArray assets = jsonObject.getJSONArray("assets");
+                    if (assets.length() > 0) {
+                        String downloadUrl = assets.getJSONObject(0).getString("browser_download_url");
+                        mainHandler.post(() -> callback.onUpdateAvailable(latestVersion, downloadUrl));
+                    }
+                } else {
+                    mainHandler.post(callback::onUpToDate);
+                }
+            } else {
+                mainHandler.post(() -> callback.onError("Server Error"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            mainHandler.post(() -> callback.onError("Network Error"));
+        } finally {
+            try { if (reader != null) reader.close(); } catch (Exception ignored) {}
+            if (connection != null) connection.disconnect();
+        }
     }
 
     private boolean isNewerVersion(String current, String latest) {
@@ -122,9 +130,7 @@ public class UpdateManager {
                 if (latePart > currPart) return true;
                 if (currPart > latePart) return false;
             }
-        } catch (Exception e) {
-            return !current.equals(latest);
-        }
+        } catch (Exception e) { return !current.equals(latest); }
         return false;
     }
 
@@ -133,11 +139,7 @@ public class UpdateManager {
         String channelId = "update_channel";
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    channelId,
-                    "App Updates",
-                    NotificationManager.IMPORTANCE_HIGH
-            );
+            NotificationChannel channel = new NotificationChannel(channelId, "App Updates", NotificationManager.IMPORTANCE_HIGH);
             notificationManager.createNotificationChannel(channel);
         }
 
@@ -146,16 +148,13 @@ public class UpdateManager {
         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            pendingFlags |= PendingIntent.FLAG_IMMUTABLE;
-        }
-
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) pendingFlags |= PendingIntent.FLAG_IMMUTABLE;
         PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, pendingFlags);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("Update Available")
-                .setContentText("A new update is available. Tap to install for better features.")
+                .setContentText("A new update is available. Tap to install.")
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent);
@@ -164,24 +163,19 @@ public class UpdateManager {
     }
 
     public void processUpdate(String downloadUrl) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (!context.getPackageManager().canRequestPackageInstalls()) {
-                prefs.edit().putString(KEY_PENDING_URL, downloadUrl).apply();
-                
-                new AlertDialog.Builder(context)
-                        .setTitle("Permission Required")
-                        .setMessage("To install the update, please allow 'Install Unknown Apps' permission in settings.")
-                        .setPositiveButton("Go to Settings", (dialog, which) -> {
-                            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
-                            intent.setData(Uri.parse("package:" + context.getPackageName()));
-                            context.startActivity(intent);
-                        })
-                        .setNegativeButton("Cancel", (dialog, which) -> {
-                            prefs.edit().remove(KEY_PENDING_URL).apply();
-                        })
-                        .show();
-                return;
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.getPackageManager().canRequestPackageInstalls()) {
+            prefs.edit().putString(KEY_PENDING_URL, downloadUrl).apply();
+            new AlertDialog.Builder(context)
+                    .setTitle("Permission Required")
+                    .setMessage("To install the update, please allow 'Install Unknown Apps' permission in settings.")
+                    .setPositiveButton("Go to Settings", (dialog, which) -> {
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                        intent.setData(Uri.parse("package:" + context.getPackageName()));
+                        context.startActivity(intent);
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> prefs.edit().remove(KEY_PENDING_URL).apply())
+                    .show();
+            return;
         }
         startDownload(downloadUrl);
     }
@@ -222,33 +216,15 @@ public class UpdateManager {
 
                 byte[] buffer = new byte[4096];
                 int bytesRead;
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                }
+                while ((bytesRead = inputStream.read(buffer)) != -1) outputStream.write(buffer, 0, bytesRead);
 
                 outputStream.flush();
-                outputStream.close();
-                outputStream = null;
-                
-                inputStream.close();
-                inputStream = null;
-                
-                connection.disconnect();
-                connection = null;
-
                 mainHandler.post(() -> launchProcessInstall(apkFile));
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (outputStream != null) {
-                    try { outputStream.close(); } catch (Exception ignored) {}
-                }
-                if (inputStream != null) {
-                    try { inputStream.close(); } catch (Exception ignored) {}
-                }
-                if (connection != null) {
-                    connection.disconnect();
-                }
+            } catch (Exception e) { e.printStackTrace(); } 
+            finally {
+                try { if (outputStream != null) outputStream.close(); } catch (Exception ignored) {}
+                try { if (inputStream != null) inputStream.close(); } catch (Exception ignored) {}
+                if (connection != null) connection.disconnect();
             }
         });
     }
@@ -266,9 +242,7 @@ public class UpdateManager {
                         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         context.startActivity(intent);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    } catch (Exception e) { e.printStackTrace(); }
                 })
                 .show();
     }
