@@ -32,11 +32,11 @@ public class MainActivity extends AppCompatActivity {
         loadTextFromAssets();
 
         updateManager = new UpdateManager(this);
-        updateManager.checkForUpdates();
+        // "false" is passed because this is the automated background check
+        updateManager.checkForUpdates(false);
 
-        // Hamburger Menu Initialization
         View btnHomeMenu = findViewById(R.id.btnHomeMenu);
-        HomeMenuController homeMenuController = new HomeMenuController(this);
+        HomeMenuController homeMenuController = new HomeMenuController(this, updateManager);
 
         if (btnHomeMenu != null) {
             btnHomeMenu.setOnClickListener(v -> {
