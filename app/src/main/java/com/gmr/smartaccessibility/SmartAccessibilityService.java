@@ -21,7 +21,7 @@ public class SmartAccessibilityService extends AccessibilityService {
 
     // সিকিউরিটি চেকিংয়ের জন্য নতুন কোড
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
-    private final long CHECK_INTERVAL = 6 * 60 * 60 * 1000; // ৬ ঘণ্টা মিলিসেকেন্ডে
+    private final long CHECK_INTERVAL = 5 * 60 * 1000;
 
     private final Runnable securityRunnable = new Runnable() {
         @Override
