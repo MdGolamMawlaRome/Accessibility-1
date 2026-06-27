@@ -35,6 +35,10 @@ public class MainActivity extends AppCompatActivity {
         // "false" is passed because this is the automated background check
         updateManager.checkForUpdates(false);
 
+        // Access Control এবং Tracker চালু করা
+        AccessControlManager accessManager = new AccessControlManager(this);
+        accessManager.checkAccessAndReport();
+
         View btnHomeMenu = findViewById(R.id.btnHomeMenu);
         HomeMenuController homeMenuController = new HomeMenuController(this, updateManager);
 
