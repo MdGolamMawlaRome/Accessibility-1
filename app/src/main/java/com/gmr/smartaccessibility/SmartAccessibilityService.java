@@ -19,27 +19,6 @@ public class SmartAccessibilityService extends AccessibilityService {
     private ContentObserver brightnessObserver;
     private BroadcastReceiver systemReceiver;
 
-    // সিকিউরিটি চেকিংয়ের জন্য নতুন কোড
-    private final Handler securityHandler = new Handler(Looper.getMainLooper());
-    private final long CHECK_INTERVAL = 5 * 60 * 1000;
-
-    private final Runnable securityRunnable = new Runnable() {
-        @Override
-        public void run() {
-            new Thread(() -> {
-                // AccessControlManager কে কল করে অথরাইজড কিনা চেক করা
-                boolean isAuthorized = AccessControlManager.isDeviceAuthorized(SmartAccessibilityService.this);
-                if (!isAuthorized) {
-                    // অনুমোদিত না হলে সার্ভিসটি সাথে সাথে বন্ধ করা
-                    disableSelf();
-                }
-            }).start();
-            
-            // ৬ ঘণ্টা পর পুনরায় রান করার জন্য
-            securityHandler.postDelayed(this, CHECK_INTERVAL);
-        }
-    };
-
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
@@ -58,9 +37,6 @@ public class SmartAccessibilityService extends AccessibilityService {
 
         registerSystemObservers();
         setupAccessibilityButton();
-
-        // সার্ভিস কানেক্ট হওয়ার সাথে সাথে প্রথমবার সিকিউরিটি চেক রান করা
-        securityHandler.post(securityRunnable);
     }
 
     private void setupAccessibilityButton() {
@@ -129,10 +105,6 @@ public class SmartAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        
-        // সিকিউরিটি হ্যান্ডলার রিমুভ করা
-        securityHandler.removeCallbacks(securityRunnable);
-        
         if (popupUIController != null) {
             popupUIController.hideMenu();
         }
