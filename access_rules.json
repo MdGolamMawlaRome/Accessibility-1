@@ -1,9 +1,9 @@
 {
   "status": "ALL",
   "allowed": [
-    "ALL"
+    "None"
   ],
   "denied": [
-    "chorerid98765432"
+    "ALL"
   ]
 }
