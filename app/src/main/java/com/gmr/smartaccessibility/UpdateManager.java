@@ -50,7 +50,7 @@ public class UpdateManager {
     public void checkForUpdates(boolean isManualCheck) {
         long lastCheckTime = prefs.getLong(KEY_LAST_CHECK, 0);
         long currentTime = System.currentTimeMillis();
-        long updateCheckingInterval = 4 * 6 * 60 * 60 * 1000;
+        long updateCheckingInterval = 6 * 60 * 60 * 1000;
 
         if (!isManualCheck && (currentTime - lastCheckTime < updateCheckingInterval)) return;
 
