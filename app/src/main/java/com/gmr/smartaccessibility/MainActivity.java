@@ -35,9 +35,21 @@ public class MainActivity extends AppCompatActivity {
         // "false" is passed because this is the automated background check
         updateManager.checkForUpdates(false);
 
-        // Access Control এবং Tracker চালু করা
-        AccessControlManager accessManager = new AccessControlManager(this);
-        accessManager.checkAccessAndReport();
+        // Access Control চেক করা হচ্ছে
+        new Thread(() -> {
+            boolean isAuthorized = AccessControlManager.isDeviceAuthorized(this);
+            if (!isAuthorized) {
+                runOnUiThread(() -> {
+                    new android.app.AlertDialog.Builder(this)
+                            .setTitle("Access Denied")
+                            .setMessage("Your device is not authorized to use this application.")
+                            .setCancelable(false)
+                            .setPositiveButton("Exit", (dialog, which) -> finishAffinity())
+                            .show();
+                });
+            }
+        }).start();
+
 
         View btnHomeMenu = findViewById(R.id.btnHomeMenu);
         HomeMenuController homeMenuController = new HomeMenuController(this, updateManager);
