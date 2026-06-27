@@ -1,0 +1,9 @@
+{
+  "status": "ALL",
+  "allowed": [
+    "ALL"
+  ],
+  "denied": [
+    "chorerid98765432"
+  ]
+}
