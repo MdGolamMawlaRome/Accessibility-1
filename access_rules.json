@@ -1,7 +1,8 @@
 {
-  "status": "ALL",
+  "status": "ACTIVE",
   "allowed": [
-    "None"
+    "আপনার_ডিভাইস_আইডি",
+    "বন্ধুর_ডিভাইস_আইডি"
   ],
   "denied": [
     "ALL"
