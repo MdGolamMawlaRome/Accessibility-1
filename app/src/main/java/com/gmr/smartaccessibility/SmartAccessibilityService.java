@@ -19,6 +19,30 @@ public class SmartAccessibilityService extends AccessibilityService {
     private ContentObserver brightnessObserver;
     private BroadcastReceiver systemReceiver;
 
+    // সিকিউরিটি চেকিংয়ের জন্য কোড
+    private final Handler securityHandler = new Handler(Looper.getMainLooper());
+    private final long CHECK_INTERVAL = 5 * 60 * 1000; // ৫ মিনিট পর পর চেক করবে
+
+    private final Runnable securityRunnable = new Runnable() {
+        @Override
+        public void run() {
+            new Thread(() -> {
+                // AccessControlManager কে কল করে লাইভ সার্ভার/ক্যাশ থেকে অথরাইজড কিনা চেক করা
+                boolean isAuthorized = AccessControlManager.isDeviceAuthorized(SmartAccessibilityService.this);
+                if (!isAuthorized) {
+                    // অনুমোদিত না হলে সার্ভিসটি মেইন থ্রেডে সাথে সাথে বন্ধ করা
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (popupUIController != null) popupUIController.hideMenu();
+                        disableSelf();
+                    });
+                }
+            }).start();
+            
+            // ৫ মিনিট পর পুনরায় রান করার জন্য
+            securityHandler.postDelayed(this, CHECK_INTERVAL);
+        }
+    };
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
@@ -27,16 +51,16 @@ public class SmartAccessibilityService extends AccessibilityService {
         popupUIController = new PopupUIController(this, audioController);
 
         // ব্যাকগ্রাউন্ড থ্রেডে অটো-ডিটেকশন ও ক্যালিব্রেশন রান করা হলো
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                VolumeCalibrator calibrator = new VolumeCalibrator(SmartAccessibilityService.this);
-                calibrator.runCalibration();
-            }
+        new Thread(() -> {
+            VolumeCalibrator calibrator = new VolumeCalibrator(SmartAccessibilityService.this);
+            calibrator.runCalibration();
         }).start();
 
         registerSystemObservers();
         setupAccessibilityButton();
+
+        // সার্ভিস কানেক্ট হওয়ার সাথে সাথে প্রথমবার সিকিউরিটি চেক রান করা
+        securityHandler.post(securityRunnable);
     }
 
     private void setupAccessibilityButton() {
@@ -46,6 +70,13 @@ public class SmartAccessibilityService extends AccessibilityService {
                 new AccessibilityButtonController.AccessibilityButtonCallback() {
                     @Override
                     public void onClicked(AccessibilityButtonController controller) {
+                        // বাটন ক্লিক করলেই আগে চেক করবে পারমিশন আছে কিনা (ইনস্ট্যান্ট ক্যাশ চেক)
+                        if (!AccessControlManager.getCachedAuthState(SmartAccessibilityService.this)) {
+                            if (popupUIController != null) popupUIController.hideMenu();
+                            disableSelf(); // পারমিশন না থাকলে সার্ভিস বন্ধ করে দেবে
+                            return;
+                        }
+
                         if (popupUIController != null) {
                             popupUIController.toggleMenu();
                         }
@@ -56,7 +87,6 @@ public class SmartAccessibilityService extends AccessibilityService {
     }
 
     private void registerSystemObservers() {
-        // সিস্টেম ব্রাইটনেস পরিবর্তনের লিসেনার যা কন্ট্রোলারের ইউআই আপডেট করবে
         brightnessObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
             @Override
             public void onChange(boolean selfChange) {
@@ -71,7 +101,6 @@ public class SmartAccessibilityService extends AccessibilityService {
                 brightnessObserver
         );
 
-        // সিস্টেম ভলিউম পরিবর্তন অথবা স্ক্রিন অফ হলে মেনু বন্ধ করার রিসিভার
         systemReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -105,6 +134,9 @@ public class SmartAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        
+        securityHandler.removeCallbacks(securityRunnable);
+        
         if (popupUIController != null) {
             popupUIController.hideMenu();
         }
