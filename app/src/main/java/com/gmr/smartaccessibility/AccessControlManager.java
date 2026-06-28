@@ -16,11 +16,6 @@ public class AccessControlManager {
     private static final String PREF_NAME = "AccessPrefs";
     private static final String KEY_IS_AUTHORIZED = "is_authorized";
 
-     // গুগল ফর্মের লিঙ্ক এবং এন্ট্রি আইডি (আপনার লিঙ্ক থেকে নেয়া)
-    private static final String FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfiLxhYKcEa19eVPuL9HGGKNRR7uHDDNjeDVfnMsSZIxd7VqQ/formResponse";
-    private static final String ENTRY_DEVICE_MODEL = "entry.1395778414";
-    private static final String ENTRY_DEVICE_ID = "entry.1072977240";
-
     public static boolean isDeviceAuthorized(Context context) {
         String deviceId = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
         SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
