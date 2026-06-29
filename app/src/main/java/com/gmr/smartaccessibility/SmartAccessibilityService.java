@@ -11,10 +11,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.view.Gravity;
-import android.view.View;
-import android.view.WindowManager;
-import android.widget.ImageView;
 
 public class SmartAccessibilityService extends AccessibilityService {
 
@@ -22,33 +18,27 @@ public class SmartAccessibilityService extends AccessibilityService {
     private AudioController audioController;
     private ContentObserver brightnessObserver;
     private BroadcastReceiver systemReceiver;
-    private View floatingButtonView;
-    private WindowManager windowManager;
 
     // সিকিউরিটি চেকিংয়ের জন্য কোড
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
     private final long CHECK_INTERVAL = 5 * 60 * 1000; // ৫ মিনিট পর পর চেক করবে
 
-    // বাটন ট্রান্সপারেন্সি কন্ট্রোল করার জন্য নতুন হ্যান্ডলার
-    private final Handler fadeHandler = new Handler(Looper.getMainLooper());
-    private final Runnable fadeRunnable = () -> {
-        if (floatingButtonView != null) {
-            floatingButtonView.setAlpha(0.3f); // ৭০% ট্রান্সপারেন্ট (৩০% দৃশ্যমান)
-        }
-    };
-
     private final Runnable securityRunnable = new Runnable() {
         @Override
         public void run() {
             new Thread(() -> {
+                // AccessControlManager কে কল করে লাইভ সার্ভার/ক্যাশ থেকে অথরাইজড কিনা চেক করা
                 boolean isAuthorized = AccessControlManager.isDeviceAuthorized(SmartAccessibilityService.this);
                 if (!isAuthorized) {
+                    // অনুমোদিত না হলে সার্ভিসটি মেইন থ্রেডে সাথে সাথে বন্ধ করা
                     new Handler(Looper.getMainLooper()).post(() -> {
                         if (popupUIController != null) popupUIController.hideMenu();
                         disableSelf();
                     });
                 }
             }).start();
+            
+            // ৫ মিনিট পর পুনরায় রান করার জন্য
             securityHandler.postDelayed(this, CHECK_INTERVAL);
         }
     };
@@ -57,12 +47,10 @@ public class SmartAccessibilityService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
 
-        windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         audioController = new AudioController(this);
         popupUIController = new PopupUIController(this, audioController);
 
-        createFloatingButton();
-
+        // ব্যাকগ্রাউন্ড থ্রেডে অটো-ডিটেকশন ও ক্যালিব্রেশন রান করা হলো
         new Thread(() -> {
             VolumeCalibrator calibrator = new VolumeCalibrator(SmartAccessibilityService.this);
             calibrator.runCalibration();
@@ -71,63 +59,29 @@ public class SmartAccessibilityService extends AccessibilityService {
         registerSystemObservers();
         setupAccessibilityButton();
 
+        // সার্ভিস কানেক্ট হওয়ার সাথে সাথে প্রথমবার সিকিউরিটি চেক রান করা
         securityHandler.post(securityRunnable);
-    }
-
-    private void createFloatingButton() {
-        ImageView fab = new ImageView(this);
-        fab.setImageResource(R.drawable.ic_floating_icon);
-
-        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                120, 120,
-                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                android.graphics.PixelFormat.TRANSLUCENT
-        );
-
-        params.gravity = Gravity.CENTER_VERTICAL | Gravity.START;
-
-        // বাটনটি তৈরি হওয়ার ৩ সেকেন্ড পর ট্রান্সপারেন্ট করার টাইমার সেট করা
-        fadeHandler.postDelayed(fadeRunnable, 3000);
-
-        fab.setOnClickListener(v -> {
-            // বাটনে ক্লিক করলে পুনরায় উজ্জ্বল করে দেয়া এবং টাইমার রিসেট করা
-            fab.setAlpha(1.0f);
-            fadeHandler.removeCallbacks(fadeRunnable);
-            fadeHandler.postDelayed(fadeRunnable, 3000);
-
-            if (!AccessControlManager.getCachedAuthState(SmartAccessibilityService.this)) {
-                if (popupUIController != null) popupUIController.hideMenu();
-                disableSelf();
-                return;
-            }
-            if (popupUIController != null) {
-                popupUIController.toggleMenu();
-            }
-        });
-
-        windowManager.addView(fab, params);
-        floatingButtonView = fab;
     }
 
     private void setupAccessibilityButton() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             AccessibilityButtonController accessibilityButtonController = getAccessibilityButtonController();
             accessibilityButtonController.registerAccessibilityButtonCallback(
-                    new AccessibilityButtonController.AccessibilityButtonCallback() {
-                        @Override
-                        public void onClicked(AccessibilityButtonController controller) {
-                            if (!AccessControlManager.getCachedAuthState(SmartAccessibilityService.this)) {
-                                if (popupUIController != null) popupUIController.hideMenu();
-                                disableSelf();
-                                return;
-                            }
+                new AccessibilityButtonController.AccessibilityButtonCallback() {
+                    @Override
+                    public void onClicked(AccessibilityButtonController controller) {
+                        // বাটন ক্লিক করলেই আগে চেক করবে পারমিশন আছে কিনা (ইনস্ট্যান্ট ক্যাশ চেক)
+                        if (!AccessControlManager.getCachedAuthState(SmartAccessibilityService.this)) {
+                            if (popupUIController != null) popupUIController.hideMenu();
+                            disableSelf(); // পারমিশন না থাকলে সার্ভিস বন্ধ করে দেবে
+                            return;
+                        }
 
-                            if (popupUIController != null) {
-                                popupUIController.toggleMenu();
-                            }
+                        if (popupUIController != null) {
+                            popupUIController.toggleMenu();
                         }
                     }
+                }
             );
         }
     }
@@ -174,26 +128,15 @@ public class SmartAccessibilityService extends AccessibilityService {
         }
     }
 
-    @Override
-    public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {}
-
-    @Override
-    public void onInterrupt() {}
+    @Override public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {}
+    @Override public void onInterrupt() {}
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-
-        // বাটন রিমুভ করার সময় টাইমার রিমুভ করা
-        fadeHandler.removeCallbacks(fadeRunnable);
-
-        if (floatingButtonView != null && windowManager != null) {
-            try { windowManager.removeView(floatingButtonView); } catch (Exception e) {}
-            floatingButtonView = null;
-        }
-
+        
         securityHandler.removeCallbacks(securityRunnable);
-
+        
         if (popupUIController != null) {
             popupUIController.hideMenu();
         }
